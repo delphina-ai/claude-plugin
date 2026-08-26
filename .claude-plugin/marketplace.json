@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "delphina",
+  "description": "Delphina's official Claude Code plugins.",
+  "owner": {
+    "name": "Delphina",
+    "email": "support@delphina.ai",
+    "url": "https://github.com/delphina-ai"
+  },
+  "plugins": [
+    {
+      "name": "delphina",
+      "source": "./",
+      "category": "data",
+      "tags": ["analytics", "data", "sql", "warehouse", "knowledge-base"]
+    }
+  ]
+}

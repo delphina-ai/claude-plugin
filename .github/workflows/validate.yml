@@ -1,0 +1,43 @@
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Claude Code ships frequently and validation tightens over time. A weekly run
+  # surfaces a manifest that a newer release started rejecting, rather than
+  # letting customers hit it at install time.
+  schedule:
+    - cron: '0 14 * * 1'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Claude Code
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Report version
+        run: claude --version
+
+      - name: Validate plugin manifest
+        run: claude plugin validate --strict .claude-plugin/plugin.json
+
+      - name: Validate marketplace manifest
+        run: claude plugin validate --strict .
+
+      # plugin.json and the marketplace entry can drift apart on a release.
+      # `plugin tag` refuses to tag when they disagree, so a dry run of the
+      # agreement check belongs on every PR.
+      - name: Check manifests agree
+        run: claude plugin tag --dry-run .
+
+      - name: Shell lint
+        run: shellcheck scripts/*.sh
+
+      - name: Snapshot install tests
+        run: tests/apply-snapshot-test.sh

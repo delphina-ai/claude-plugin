@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "delphina",
+  "displayName": "Delphina",
+  "version": "0.1.0",
+  "description": "Ask Delphina's analytics agent data questions from Claude Code, and pull your workspace's knowledge base to disk so Claude can grep your metric, table, and rule definitions locally.",
+  "author": {
+    "name": "Delphina",
+    "email": "support@delphina.ai",
+    "url": "https://delphina.ai"
+  },
+  "homepage": "https://docs.delphina.ai/integrations/delphina-mcp",
+  "repository": "https://github.com/delphina-ai/claude-plugin",
+  "license": "MIT",
+  "keywords": [
+    "delphina",
+    "analytics",
+    "data",
+    "sql",
+    "warehouse",
+    "knowledge-base",
+    "mcp"
+  ]
+}
