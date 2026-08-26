@@ -19,28 +19,44 @@ days, not minutes.
 
 ## Steps
 
-**1. Find the cached snapshot id, if any.**
+**1. Decide which workspace.**
+
+A workspace is one team's warehouse and knowledge base. If the user named one,
+use it. Otherwise you can omit it and `sync_knowledge` uses their default.
+
+Call `list_workspaces` when you need to choose and cannot tell — it returns each
+workspace's id, name, your role, and which one is the default. If several could
+plausibly match what the user meant, ask rather than guessing: syncing the wrong
+workspace caches another team's definitions and every later answer is drawn from
+them.
+
+**2. Find the cached snapshot id, if any.**
 
 ```bash
 cat .delphina/knowledge/<workspace-id>/.snapshot-id 2>/dev/null
 ```
 
-If you do not know the workspace id yet, list what is cached:
+To see what is already cached:
 
 ```bash
 ls .delphina/knowledge/ 2>/dev/null
 ```
 
-**2. Call `sync_knowledge`.**
+**3. Call `sync_knowledge`.**
 
-Pass the workspace (id or name) and, if step 1 found one, that value as
-`known_snapshot`. Passing it is what makes a repeat sync free.
+Pass the workspace if you have one — omit it to use the default — and, if step 2
+found a cached id, that value as `known_snapshot`. Passing it is what makes a
+repeat sync free.
 
 Send `snapshot_id`, not `commit_sha`. The same knowledge base renders
 differently depending on `include_evals`, so a bare commit would report a cache
 built with different options as current.
 
-**3. Act on the response.**
+**4. Act on the response.**
+
+The response echoes `workspace_id`, so use that for the cache path rather than
+whatever selector you passed — a name resolves to an id, and the cache is keyed
+by id.
 
 - `unchanged: true` — the local copy is current. Stop here; do not re-download.
 - `commit_sha: null` — this workspace has no knowledge base yet. Tell the user

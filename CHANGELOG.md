@@ -8,5 +8,7 @@
   knowledge base to `.delphina/knowledge/<workspace-id>/` for local grep/read.
   Snapshots carry a layout version; the plugin refuses an unrecognized one and
   points at `claude plugin update` instead of silently reading the wrong paths.
+- The sync skill picks a workspace via `list_workspaces` when the user has not
+  named one, rather than requiring them to know its name.
 - `DELPHINA_MCP_URL` overrides the server URL for deployments that do not use
   `https://app.delphina.ai/api/mcp`.
