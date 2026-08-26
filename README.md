@@ -58,6 +58,9 @@ your metrics) and it will pull a snapshot to
 `.delphina/knowledge/<workspace-id>/` — one markdown file per document, laid out
 as `<namespace>/<type>/<name>.md`.
 
+You do not have to say which workspace. Claude syncs your default one, and can
+call `list_workspaces` to show you the alternatives if you have more than one.
+
 From then on Claude answers definition questions by reading those files, with no
 round-trip to Delphina. The cache is git-ignored automatically, so it never lands
 in your repository.
