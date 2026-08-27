@@ -26,7 +26,8 @@ claude plugin install delphina@delphina
 ```
 
 If you ran those from inside Claude Code, run `/reload-plugins` to activate the
-plugin; from a shell, just start Claude Code. Then run any Delphina tool — the
+plugin; from a shell, just start Claude Code. Then run `/delphina:setup`, which
+checks the connection and walks through the optional pieces. Then run any Delphina tool — the
 first call opens a browser to sign in to Delphina, and Claude Code stores the
 OAuth credential for you.
 
@@ -77,9 +78,8 @@ the wrong place. If that happens, update the plugin — the error says how.
 ## Trace capture
 
 **Off by default, and off until two separate people turn it on** — a Delphina
-administrator for the organization, and you for this machine. Run
-`/delphina:setup-traces` to enable it locally; it explains what is collected
-before changing anything.
+administrator for the organization, and you for this machine. Run `/delphina:setup`
+to enable it locally; it explains what is collected before changing anything.
 
 When capture is on, sessions **that called a Delphina tool** have their
 transcript uploaded to your Delphina organization, where they improve the
@@ -181,7 +181,7 @@ This repository is both a Claude Code plugin and a single-plugin marketplace:
 | `.mcp.json`                       | The Delphina MCP server definition                             |
 | `skills/sync-knowledge/`          | The knowledge-base sync skill                                  |
 | `scripts/apply-snapshot.sh`       | Downloads, version-checks, and atomically installs a snapshot  |
-| `commands/setup-traces.md`        | `/delphina:setup-traces` — enable or disable trace capture      |
+| `commands/setup.md`               | `/delphina:setup` — connection check, knowledge base, traces   |
 | `hooks/hooks.json`                | Runs the uploader on Stop and SessionEnd                       |
 | `scripts/upload-transcript.sh`    | Uploads the new part of an eligible session's transcript       |
 

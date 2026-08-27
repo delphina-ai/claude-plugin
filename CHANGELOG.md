@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- `/delphina:setup` replaces `/delphina:setup-traces`: one command that checks
+  the connection, offers the knowledge base, and offers trace capture, rather
+  than a command per feature that a new user has no reason to look for.
+- The transcript uploader redacts Delphina credentials (`dpk_`, `dsa_`, and
+  `Bearer` values) before upload. Setting up trace capture can itself put a
+  token in a transcript, and that transcript is what gets uploaded next.
+
 ## 0.2.0
 
 - **Trace capture** (`/delphina:setup-traces`): uploads transcripts of sessions

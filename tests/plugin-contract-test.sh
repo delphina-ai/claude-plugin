@@ -80,8 +80,8 @@ done <<<"$documented"
 # --- the setup command names the paths the uploader actually uses ----------
 echo "setup command matches the uploader's state layout"
 for path in ".delphina/traces.json" ".delphina/credentials" ".delphina/offsets"; do
-  check "setup-traces mentions $path" "yes" \
-    "$(grep -qF "$path" "$root/commands/setup-traces.md" && echo yes || echo no)"
+  check "setup mentions $path" "yes" \
+    "$(grep -qF "$path" "$root/commands/setup.md" && echo yes || echo no)"
   check "the uploader actually uses $(basename "$path")" "yes" \
     "$(grep -qF "$(basename "$path")" "$root/scripts/upload-transcript.sh" && echo yes || echo no)"
 done
