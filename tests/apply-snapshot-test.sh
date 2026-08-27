@@ -79,6 +79,19 @@ make_zip omitting \
 }' \
   analytics/metric/revenue.md
 
+# An archive that tries to write outside wherever it is extracted. The server
+# builds these, but the client is what unpacks them on someone's laptop, so the
+# guarantee has to hold here regardless of what produced the file.
+python3 - "$work/serve/slip.zip" <<'SLIPZIP'
+import sys, zipfile
+
+with zipfile.ZipFile(sys.argv[1], "w") as z:
+    z.writestr("sync-info.json", '{"layout": 1, "omitted": []}')
+    z.writestr("analytics/metric/legit.md", "fine")
+    z.writestr("../../escaped.md", "PWNED")
+    z.writestr("/abs-escaped.md", "PWNED")
+SLIPZIP
+
 python3 -m http.server "$port" --directory "$work/serve" >/dev/null 2>&1 &
 server_pid=$!
 sleep 1
@@ -138,6 +151,23 @@ run --url "http://127.0.0.1:$port/omitting.zip" --workspace ws-2 --snapshot "mno
 check "still installs" "0" "$rc"
 check "warns about the omission" "yes" \
   "$(grep -q 'analytics/dbt-model/orders' "$work/err" && echo yes || echo no)"
+
+# --- an archive cannot write outside the cache -----------------------------
+echo "refuses an archive that tries to escape the extraction directory"
+before="$(find "$work" -maxdepth 1 -name 'escaped.md' | wc -l | tr -d ' ')"
+"$script" --root "$root" --url "http://127.0.0.1:$port/slip.zip" \
+  --workspace ws-slip --snapshot "slip_public_v1" >"$work/out" 2>"$work/err" && rc=0 || rc=$?
+check "does not report success on a malicious archive" "1" "$([[ "$rc" -ne 0 ]] && echo 1 || echo 0)"
+check "nothing written above the cache root" "$before" \
+  "$(find "$work" -maxdepth 1 -name 'escaped.md' | wc -l | tr -d ' ')"
+check "nothing written at the filesystem root" "0" \
+  "$(find / -maxdepth 1 -name 'abs-escaped.md' 2>/dev/null | wc -l | tr -d ' ')"
+check "no half-built cache left behind" "absent" \
+  "$([[ -d "$root/ws-slip" ]] && echo present || echo absent)"
+# The defence is unzip's own refusal of `../` and absolute paths, turned into a
+# hard failure by `set -e`. Neither is ours, so `|| true` on that line, or an
+# extractor without the same behaviour, would remove it silently. This is the
+# test that makes such a change fail.
 
 echo
 if [[ "$failures" -gt 0 ]]; then

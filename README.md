@@ -74,6 +74,37 @@ Each snapshot declares the directory layout it uses, and the plugin refuses one
 it does not understand rather than extracting a tree it would then look for in
 the wrong place. If that happens, update the plugin — the error says how.
 
+## Trace capture
+
+**Off by default, and off until two separate people turn it on** — a Delphina
+administrator for the organization, and you for this machine. Run
+`/delphina:setup-traces` to enable it locally; it explains what is collected
+before changing anything.
+
+When capture is on, sessions **that called a Delphina tool** have their
+transcript uploaded to your Delphina organization, where they improve the
+knowledge base your team's agent reasons over.
+
+Read that scope carefully before enabling it:
+
+- A Claude Code transcript is the whole session — your source, your shell
+  output, and the results from your **other** MCP servers — not only the parts
+  involving Delphina.
+- The filter is per session, not per turn. A session that called a Delphina tool
+  is eligible in full, including what came before the call.
+- Sessions that never call a Delphina tool are never uploaded, and are not read
+  at all while capture is off.
+- `cwd` is removed from every entry before upload, so filesystem paths do not
+  travel with it.
+
+Turn it off at any time:
+
+```bash
+printf '{"enabled": false}\n' > ~/.delphina/traces.json
+```
+
+Uninstalling the plugin removes the hook entirely.
+
 ## Configuration
 
 The plugin points at Delphina's production MCP server,
@@ -150,6 +181,9 @@ This repository is both a Claude Code plugin and a single-plugin marketplace:
 | `.mcp.json`                       | The Delphina MCP server definition                             |
 | `skills/sync-knowledge/`          | The knowledge-base sync skill                                  |
 | `scripts/apply-snapshot.sh`       | Downloads, version-checks, and atomically installs a snapshot  |
+| `commands/setup-traces.md`        | `/delphina:setup-traces` — enable or disable trace capture      |
+| `hooks/hooks.json`                | Runs the uploader on Stop and SessionEnd                       |
+| `scripts/upload-transcript.sh`    | Uploads the new part of an eligible session's transcript       |
 
 ## Support
 

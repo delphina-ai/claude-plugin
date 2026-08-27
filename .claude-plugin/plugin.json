@@ -20,5 +20,6 @@
     "warehouse",
     "knowledge-base",
     "mcp"
-  ]
+  ],
+  "hooks": "./hooks/hooks.json"
 }
