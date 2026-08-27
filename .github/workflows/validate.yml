@@ -44,3 +44,6 @@ jobs:
 
       - name: Transcript uploader tests
         run: tests/upload-transcript-test.sh
+
+      - name: Plugin contract tests
+        run: tests/plugin-contract-test.sh

@@ -200,6 +200,24 @@ state on cred
 run s12 "$T" >/dev/null
 check "writes nothing to stdout" "" "$(cat "$work/out")"
 
+# --- a cursor that outran the file -----------------------------------------
+echo "a stored offset past the end of the transcript"
+start_server 200 10
+state on cred
+mkdir -p "$work/state/offsets"
+echo 999999 > "$work/state/offsets/s13"
+: > "$work/requests.log"
+check "exits 0" "0" "$(run s13 "$T")"
+check "sends nothing rather than a nonsensical range" "0" "$(requests)"
+check "leaves the stored offset alone" "999999" "$(cat "$work/state/offsets/s13")"
+# Documented, not incidental. Transcripts are append-only within a session, so
+# this should be unreachable — but if a transcript were ever replaced by a
+# shorter file at the same path, uploads for that session would stop silently
+# and permanently. Resetting to zero instead would oscillate: the server would
+# answer 409 with its own larger offset, which is past the file again. Neither
+# is good, and the quiet option is the safer one, so it is pinned here rather
+# than left to be rediscovered.
+
 echo
 if [[ "$failures" -gt 0 ]]; then
   echo "$failures check(s) failed" >&2
