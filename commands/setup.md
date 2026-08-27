@@ -100,10 +100,17 @@ Capture is off unless this says otherwise, and it is checked before the
 transcript is opened at all.
 
 **The other gate.** Check `organization_capture_enabled` in the tool's response.
-When it is `false`, the credential is valid but the server will refuse uploads
-until an org admin enables capture under **Org Admin → Trace Capture**. Say so
-plainly — it is the most common reason nothing happens, and the user cannot fix
-it themselves.
+
+- `false` — the credential is valid but the server will refuse uploads until an
+  org admin enables capture under **Org Admin → Trace Capture**. Say so plainly:
+  it is the most common reason nothing happens, and the user cannot fix it.
+- `null` — the setting could not be read. Do not report this as "off"; the
+  credential is fine and capture may well be on. Say it could not be checked.
+- `true` — nothing more to do.
+
+**If minting fails because you are viewing as another user**, that is deliberate
+and not a bug to work around: the token would belong to the person being viewed
+and would end up on the reviewer's machine. They need to run setup themselves.
 
 ## Turning trace capture off
 
