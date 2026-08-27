@@ -80,7 +80,7 @@ START="$(cat "$OFFSET_FILE" 2>/dev/null || echo 0)"
 # call may have happened many turns ago.
 BODY="$(
   DELPHINA_START="$START" DELPHINA_VERSION="$VERSION" python3 - "$TRANSCRIPT" <<'PY' 2>/dev/null
-import base64, gzip, io, json, os, sys
+import base64, gzip, io, json, os, re, sys
 
 path = sys.argv[1]
 start = int(os.environ["DELPHINA_START"])
@@ -101,6 +101,32 @@ def is_delphina_server(value):
     that would upload whole sessions on the strength of a name collision.
     """
     return isinstance(value, str) and value.rsplit(":", 1)[-1] == "delphina"
+
+# Delphina credential shapes. Applied to the finished payload rather than to
+# parsed fields, so a half-written line kept verbatim above is covered too.
+#
+# This is NOT general secret scanning, and should not be described as such: it
+# removes credentials whose shape we define, because our own setup flow can put
+# one in a transcript — the model reads the token to write it to disk, and the
+# transcript of that session is exactly what gets uploaded next. A `Bearer`
+# value is included because shell output echoing an Authorization header is the
+# other way one turns up.
+_SECRET_PATTERNS = [
+    re.compile(rb"\b(dpk_|dsa_)[A-Za-z0-9_-]{8,}"),
+    re.compile(rb"(?i)(bearer\s+)[A-Za-z0-9._~+/=-]{16,}"),
+]
+
+
+def redact_credentials(blob):
+    """Replace credential-shaped runs with a marker.
+
+    Keeps the prefix so a reader can tell what was removed, which matters when
+    someone is trying to work out why a trace looks odd.
+    """
+    for pattern in _SECRET_PATTERNS:
+        blob = pattern.sub(rb"\1[redacted]", blob)
+    return blob
+
 
 used_delphina = False
 try:
@@ -153,7 +179,7 @@ for raw in chunk.split(b"\n"):
     entry.pop("cwd", None)
     lines.append(json.dumps(entry, separators=(",", ":")).encode("utf-8"))
 
-payload = b"\n".join(lines) + b"\n"
+payload = redact_credentials(b"\n".join(lines) + b"\n")
 with gzip.GzipFile(fileobj=out, mode="wb", mtime=0) as gz:
     gz.write(payload)
 

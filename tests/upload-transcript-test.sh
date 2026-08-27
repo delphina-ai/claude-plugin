@@ -88,6 +88,15 @@ transcript_with_delphina() {
 EOF
 }
 
+transcript_with_secrets() {
+  cat > "$1" <<'EOF'
+{"type":"assistant","cwd":"/Users/someone/p","attributionMcpServer":"plugin:delphina:delphina"}
+{"type":"user","cwd":"/Users/someone/p","message":"token is dpk_liveSECRETvalue123456 ok"}
+{"type":"assistant","cwd":"/Users/someone/p","message":"curl -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.padding.signature'"}
+{"type":"assistant","cwd":"/Users/someone/p","message":"svc dsa_anotherSECRET9876543
+EOF
+}
+
 transcript_without_delphina() {
   cat > "$1" <<'EOF'
 {"type":"user","cwd":"/Users/someone/secret-project","message":"refactor auth"}
@@ -199,6 +208,36 @@ start_server 200 10
 state on cred
 run s12 "$T" >/dev/null
 check "writes nothing to stdout" "" "$(cat "$work/out")"
+
+# --- credentials never leave the machine -----------------------------------
+echo "redacts credentials before upload"
+start_server 200 10
+state on cred
+transcript_with_secrets "$work/secrets.jsonl"
+: > "$work/requests.log"
+run s14 "$work/secrets.jsonl" >/dev/null
+
+uploaded="$(python3 -c "
+import base64, gzip, json
+r = json.loads(open('$work/requests.log').readline())
+b = json.loads(r['body'])
+print(gzip.decompress(base64.b64decode(b['gzippedDelta'])).decode())
+")"
+
+check "a personal token is gone" "absent" \
+  "$(grep -q 'liveSECRETvalue' <<<"$uploaded" && echo present || echo absent)"
+check "a bearer value is gone" "absent" \
+  "$(grep -q 'padding.signature' <<<"$uploaded" && echo present || echo absent)"
+# The last line is deliberately truncated mid-JSON, the shape a transcript takes
+# when it is flushed asynchronously. Those lines are kept verbatim so nothing is
+# dropped, which is exactly why redaction runs over the finished payload rather
+# than over parsed fields.
+check "a token on an unparseable line is gone" "absent" \
+  "$(grep -q 'anotherSECRET' <<<"$uploaded" && echo present || echo absent)"
+check "the prefix survives so a reader can tell what was removed" "present" \
+  "$(grep -q 'dpk_\[redacted\]' <<<"$uploaded" && echo present || echo absent)"
+check "ordinary content is untouched" "present" \
+  "$(grep -q 'attributionMcpServer' <<<"$uploaded" && echo present || echo absent)"
 
 # --- a cursor that outran the file -----------------------------------------
 echo "a stored offset past the end of the transcript"
