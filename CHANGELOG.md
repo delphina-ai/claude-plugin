@@ -8,6 +8,15 @@
 - The transcript uploader redacts Delphina credentials (`dpk_`, `dsa_`, and
   `Bearer` values) before upload. Setting up trace capture can itself put a
   token in a transcript, and that transcript is what gets uploaded next.
+- `/delphina:setup` mints the trace-upload credential itself via the
+  `create_trace_upload_token` tool, instead of sending you to the dashboard to
+  create one by hand. The minted token carries the `traces:write` scope only,
+  which is narrower than what is easy to create by hand — the dashboard's
+  default is a full-surface token, and that is the one that would have ended up
+  in a file on a laptop.
+- Re-running setup on a machine retires that machine's previous token, so
+  credentials stop accumulating. It only ever revokes the id recorded locally
+  by a previous run, so setting up a second machine leaves the first working.
 
 ## 0.2.0
 
