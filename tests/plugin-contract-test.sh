@@ -86,6 +86,25 @@ for path in ".delphina/traces.json" ".delphina/credentials" ".delphina/offsets";
     "$(grep -qF "$(basename "$path")" "$root/scripts/upload-transcript.sh" && echo yes || echo no)"
 done
 
+# --- setup's credential story stays internally consistent ------------------
+echo "setup documents the minted credential end to end"
+# The token is minted by an MCP tool and its id recorded locally so the NEXT run
+# can retire it. Three places have to agree, and a half-updated doc is the
+# realistic failure: it leaves live credentials on the server forever.
+check "setup names the minting tool" "yes" \
+  "$(grep -qF 'create_trace_upload_token' "$root/commands/setup.md" && echo yes || echo no)"
+check "setup passes the recorded id back as replaces_token_id" "yes" \
+  "$(grep -qF 'replaces_token_id' "$root/commands/setup.md" && echo yes || echo no)"
+# token-id has three distinct roles, and each is checked on its own. A count
+# threshold would not do: the file is mentioned four times, so dropping the
+# teardown line still cleared any count that also passed before.
+check "setup writes the id" "yes" \
+  "$(grep -qE 'value into .~/\.delphina/token-id' "$root/commands/setup.md" && echo yes || echo no)"
+check "setup reads the id back on a repeat run" "yes" \
+  "$(grep -qE 'cat ~/\.delphina/token-id' "$root/commands/setup.md" && echo yes || echo no)"
+check "teardown removes the id" "yes" \
+  "$(grep -qE '^rm -f .*\.delphina/token-id' "$root/commands/setup.md" && echo yes || echo no)"
+
 # --- the uploader can never fail a turn ------------------------------------
 echo "the uploader cannot fail a user's turn"
 # Exit code 2 from a Stop hook means "do not stop", which traps the user in a
