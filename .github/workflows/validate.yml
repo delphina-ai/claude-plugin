@@ -17,8 +17,22 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Claude Code
+        # Retried because this is a network fetch on the critical path of every
+        # run, and a transient reset here fails the build for reasons that have
+        # nothing to do with the change under test. Seen in practice:
+        # `curl: (35) Recv failure: Connection reset by peer`.
         run: |
-          curl -fsSL https://claude.ai/install.sh | bash
+          for attempt in 1 2 3; do
+            if curl -fsSL --retry 3 --retry-all-errors --connect-timeout 15 \
+                 https://claude.ai/install.sh | bash; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then
+              echo "Claude Code install failed after 3 attempts" >&2
+              exit 1
+            fi
+            sleep $((attempt * 5))
+          done
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Report version
