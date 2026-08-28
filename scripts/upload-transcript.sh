@@ -334,10 +334,17 @@ fi
 dlog "post: [$SESSION_ID] uploading from offset $START"
 
 URL="$API_BASE/external-traces/v1/$HARNESS/sessions/$SESSION_ID/events"
+# `x-api-key`, not `Authorization: Bearer`. The API-key path reads only this
+# header (or an `apiKey` query param); `Authorization` is consumed by the
+# data-plane service-token path, which is gated to a different set of endpoints
+# and expects a service JWT rather than a user token. Sending Bearer here is
+# byte-identical to sending no credential at all — the server answers "No
+# authentication!" and the token is never evaluated, which is what happened for
+# the whole 0.2.0–0.4.0 line.
 RESPONSE="$(
   printf '%s' "$BODY" | curl --silent --show-error --max-time 30 \
     --write-out '\n%{http_code}' \
-    --header "Authorization: Bearer $TOKEN" \
+    --header "x-api-key: $TOKEN" \
     --header 'Content-Type: application/json' \
     --data @- \
     "$URL" 2>/dev/null
