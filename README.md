@@ -92,6 +92,8 @@ Read that scope carefully before enabling it:
 - A Claude Code transcript is the whole session — your source, your shell
   output, and the results from your **other** MCP servers — not only the parts
   involving Delphina.
+- **Any admin of your Delphina organization can read an uploaded transcript.**
+  Not only you, and not only the parts about Delphina.
 - The filter is per session, not per turn. A session that used Delphina is
   eligible in full, including what came before it did.
 - Grepping a knowledge base you synced earlier counts, even in a session that

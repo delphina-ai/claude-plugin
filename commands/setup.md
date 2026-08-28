@@ -44,6 +44,9 @@ Explain what it is before asking, and be straight about the scope:
   over.
 - A transcript is the **whole session** — their source, their shell output, and
   results from their **other** MCP servers.
+- **Any admin of their organization can read an uploaded transcript**, not only
+  them. Say this plainly: it is the part someone is most likely to assume works
+  the other way, and it is the hardest to take back once a session is uploaded.
 - The filter is per session, not per turn: a session that used Delphina is
   eligible in full, including what came before it did.
 - "Used Delphina" means calling a Delphina tool **or** running a tool against a
