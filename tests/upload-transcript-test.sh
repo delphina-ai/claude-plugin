@@ -55,6 +55,7 @@ class H(http.server.BaseHTTPRequestHandler):
             fh.write(json.dumps({
                 "path": self.path,
                 "auth": self.headers.get("Authorization", ""),
+                "apikey": self.headers.get("x-api-key", ""),
                 "body": body.decode("utf-8", "replace"),
             }) + "\n")
         payload = json.dumps({"ackedByteOffset": ACKED, "message": "x"}).encode()
@@ -184,7 +185,18 @@ check "session with a Delphina tool call is uploaded" "1" "$(requests)"
 
 # --- what actually goes over the wire ---------------------------------------
 echo "payload"
-check "authorization header is sent" "Bearer dpk_test_token" \
+# The credential must travel in `x-api-key`. The server's API-key path reads
+# only that header (or an `apiKey` query param); `Authorization` is consumed by
+# the data-plane service-token path and never evaluated for a user token, so
+# sending Bearer is indistinguishable from sending nothing.
+#
+# The previous version of this check asserted `Bearer dpk_test_token` against a
+# stub that echoed whatever it was given, so it passed for the entire time the
+# uploader could not authenticate at all. A stub cannot tell you that you are
+# speaking the wrong protocol; only the header contract can.
+check "credential is sent in x-api-key" "dpk_test_token" \
+  "$(python3 -c "import json;print(json.loads(open('$work/requests.log').readline())['apikey'])")"
+check "no Authorization header is sent" "" \
   "$(python3 -c "import json;print(json.loads(open('$work/requests.log').readline())['auth'])")"
 check "path carries harness and session" "/external-traces/v1/claude-code/sessions/s8/events" \
   "$(python3 -c "import json;print(json.loads(open('$work/requests.log').readline())['path'])")"

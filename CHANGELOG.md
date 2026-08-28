@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.5.1
+
+- **Fixes uploads, which have never worked.** The uploader sent its credential
+  as `Authorization: Bearer`, but the server's API-key path reads only
+  `x-api-key` — `Authorization` belongs to the data-plane service-token path and
+  is never evaluated for a user token. Every upload since trace capture shipped
+  was answered "No authentication!", indistinguishable from sending no
+  credential at all, and retried silently forever.
+
+  The test meant to catch this asserted the wrong header against a stub that
+  echoed back whatever it was handed, so it passed for the entire life of the
+  bug. It now pins `x-api-key` and asserts no `Authorization` header is sent.
+
+  This fix was written for 0.5.0 and missed the merge, so 0.5.0 shipped the
+  broken header. A matching control-plane fix is also required before an upload
+  can land: the scope check read a request path Express had already stripped, so
+  the `traces:write` carve-out never applied either.
+
 ## 0.5.0
 
 - **Widens what counts as a Delphina session.** Reading a knowledge base that
