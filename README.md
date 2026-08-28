@@ -105,6 +105,36 @@ printf '{"enabled": false}\n' > ~/.delphina/traces.json
 
 Uninstalling the plugin removes the hook entirely.
 
+### Checking whether it is working
+
+The uploader is silent by design. It runs on every turn, and a hook that writes
+to your terminal — or exits non-zero, which Claude Code reads as "do not stop" —
+would interrupt your work to report on telemetry. The cost is that "did that
+upload?" has no visible answer.
+
+Set `DELPHINA_TRACE_DEBUG=1` to get one:
+
+```bash
+DELPHINA_TRACE_DEBUG=1 claude
+```
+
+Outcomes are appended to `~/.delphina/upload.log`, one line per turn:
+
+```
+2026-08-27T22:14:03Z ok: [abc123] accepted, server offset now 48210
+2026-08-27T22:15:41Z stop: [abc123] session called no Delphina tool, so none of it is eligible
+2026-08-27T22:16:02Z denied: [abc123] 403, organization has not enabled trace capture
+```
+
+The log records statuses, byte counts, and skip reasons — never your transcript
+and never your token. It is written only while the variable is set, and the file
+is truncated once it passes 256 KB.
+
+Without the flag, the same states are still readable from
+`~/.delphina/offsets/<session-id>`: it holds the byte offset the server has
+acknowledged, so a number that grows means uploads are landing. A sibling file
+ending in `.disabled` means your organization has capture switched off.
+
 ## Configuration
 
 The plugin points at Delphina's production MCP server,

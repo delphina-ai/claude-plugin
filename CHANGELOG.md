@@ -18,6 +18,15 @@
 - Re-running setup on a machine retires that machine's previous token, so
   credentials stop accumulating. It only ever revokes the id recorded locally
   by a previous run, so setting up a second machine leaves the first working.
+- `DELPHINA_TRACE_DEBUG=1` writes upload outcomes to `~/.delphina/upload.log`.
+  The uploader has to stay silent on a normal turn — hook output interrupts you,
+  and a non-zero Stop exit traps you in a loop — which left no way for anyone,
+  including us, to answer "did that upload?". Statuses and skip reasons only:
+  never the transcript, never the token.
+- Fixed the uploader reporting `clientVersion: "0.1.0"` on every request. It is
+  a separate constant from the manifest and went stale for the whole 0.2.0 line,
+  so the one field that identifies a bad client in the field named every client
+  identically. The release check now fails when the two disagree.
 
 ## 0.2.0
 

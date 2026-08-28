@@ -18,32 +18,86 @@ set -uo pipefail
 # Never let a failure escape, whatever goes wrong below.
 trap 'exit 0' ERR
 
-VERSION="0.1.0"
+# Reported to the server as `clientVersion`, which exists to identify a bad
+# client in the field. It has to match the manifest to be worth anything, and it
+# silently did not for the whole 0.2.0 line — every upload claimed 0.1.0.
+# `tests/plugin-contract-test.sh` now fails when the two disagree.
+VERSION="0.3.0"
 STATE_DIR="${DELPHINA_STATE_DIR:-$HOME/.delphina}"
 CONFIG="$STATE_DIR/traces.json"
 CRED="$STATE_DIR/credentials"
+DEBUG_LOG="$STATE_DIR/upload.log"
 API_BASE="${DELPHINA_API_URL:-https://app.delphina.ai/api}"
 HARNESS="claude-code"
+
+# --- Optional debug log -----------------------------------------------------
+# Off unless DELPHINA_TRACE_DEBUG=1.
+#
+# Every failure path here is a silent `exit 0`, which is right for a hook — its
+# stdout is shown to the user, and a non-zero Stop exit traps them — but it
+# leaves "did my trace upload?" with no answer, including for us. This writes
+# outcomes to a file, where no turn is interrupted by them.
+#
+# Statuses, byte counts, and skip reasons only. The request body is never
+# logged: it is the user's transcript, and the redaction pass below exists to
+# keep credentials out of what we persist. A debug log echoing the body would
+# put both back on disk, unredacted, in a file nobody remembers enabling.
+#
+# The subshell matters. `trap ... ERR` above fires on any non-zero command, and
+# an ERR trap is not inherited by a subshell unless `set -E` is on, so this
+# cannot make logging turn an upload into an early `exit 0`.
+dlog() {
+  [[ "${DELPHINA_TRACE_DEBUG:-}" == 1 ]] || return 0
+  (
+    mkdir -p "$STATE_DIR" 2>/dev/null
+    # Truncate rather than rotate: this is a debugging aid, the recent lines are
+    # the ones anyone reads, and a machine left with the flag on should not fill
+    # its disk.
+    if [[ -f "$DEBUG_LOG" ]] && [[ "$(wc -c < "$DEBUG_LOG" 2>/dev/null || echo 0)" -gt 262144 ]]; then
+      : > "$DEBUG_LOG" 2>/dev/null
+    fi
+    printf '%s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$*" >> "$DEBUG_LOG" 2>/dev/null
+  ) || true
+  return 0
+}
 
 # --- Gate 1: is trace capture switched on at all? --------------------------
 # First, and deliberately before the transcript is read. When capture is off this
 # process opens nothing belonging to the user: not their code, not the output of
 # their other tools. "We do not upload" and "we do not read" are different
 # promises, and only the second is worth making.
-[[ -f "$CONFIG" ]] || exit 0
-grep -q '"enabled"[[:space:]]*:[[:space:]]*true' "$CONFIG" 2>/dev/null || exit 0
+if [[ ! -f "$CONFIG" ]]; then
+  dlog "stop: trace capture not configured on this machine ($CONFIG absent)"
+  exit 0
+fi
+if ! grep -q '"enabled"[[:space:]]*:[[:space:]]*true' "$CONFIG" 2>/dev/null; then
+  dlog "stop: trace capture switched off locally ($CONFIG has enabled != true)"
+  exit 0
+fi
 
 # --- Gate 2: do we have a credential? --------------------------------------
-[[ -r "$CRED" ]] || exit 0
+if [[ ! -r "$CRED" ]]; then
+  dlog "stop: no credential at $CRED — run /delphina:setup"
+  exit 0
+fi
 TOKEN="$(tr -d '[:space:]' < "$CRED")"
-[[ -n "$TOKEN" ]] || exit 0
+if [[ -z "$TOKEN" ]]; then
+  dlog "stop: credential file is empty — run /delphina:setup"
+  exit 0
+fi
 
 # The hook payload arrives as JSON on stdin.
 PAYLOAD="$(cat)"
 [[ -n "$PAYLOAD" ]] || exit 0
 
-command -v python3 >/dev/null 2>&1 || exit 0
-command -v curl >/dev/null 2>&1 || exit 0
+if ! command -v python3 >/dev/null 2>&1; then
+  dlog "stop: python3 not on PATH"
+  exit 0
+fi
+if ! command -v curl >/dev/null 2>&1; then
+  dlog "stop: curl not on PATH"
+  exit 0
+fi
 
 read -r SESSION_ID TRANSCRIPT <<<"$(
   printf '%s' "$PAYLOAD" | python3 -c '
@@ -61,15 +115,24 @@ if not sid or not path or "/" in sid or ".." in sid:
 print(sid, path)
 ' 2>/dev/null)" || exit 0
 
-[[ -n "${SESSION_ID:-}" && -n "${TRANSCRIPT:-}" ]] || exit 0
-[[ -r "$TRANSCRIPT" ]] || exit 0
+if [[ -z "${SESSION_ID:-}" || -z "${TRANSCRIPT:-}" ]]; then
+  dlog "stop: hook payload had no usable session_id/transcript_path"
+  exit 0
+fi
+if [[ ! -r "$TRANSCRIPT" ]]; then
+  dlog "stop: [$SESSION_ID] transcript not readable at $TRANSCRIPT"
+  exit 0
+fi
 
 OFFSET_FILE="$STATE_DIR/offsets/$SESSION_ID"
 mkdir -p "$STATE_DIR/offsets" 2>/dev/null || exit 0
 
 # A 403 means the organization has capture switched off. Stop asking rather than
 # retrying every turn for the rest of the session.
-[[ -f "$OFFSET_FILE.disabled" ]] && exit 0
+if [[ -f "$OFFSET_FILE.disabled" ]]; then
+  dlog "stop: [$SESSION_ID] organization has capture disabled (sticky 403 this session)"
+  exit 0
+fi
 
 START="$(cat "$OFFSET_FILE" 2>/dev/null || echo 0)"
 [[ "$START" =~ ^[0-9]+$ ]] || START=0
@@ -78,8 +141,17 @@ START="$(cat "$OFFSET_FILE" 2>/dev/null || echo 0)"
 # Whether this session ever called a Delphina MCP tool decides if ANY of it is
 # eligible, and the answer needs the whole file, not just the new part — the
 # call may have happened many turns ago.
+# "Nothing was uploaded" is usually the payload step deciding this session is
+# ineligible, which is by far the most common reason someone thinks capture is
+# broken. Keep its stderr when debugging so the reason reaches the log; discard
+# it otherwise, exactly as before.
+PY_ERR=/dev/null
+if [[ "${DELPHINA_TRACE_DEBUG:-}" == 1 ]]; then
+  PY_ERR="$(mktemp "${TMPDIR:-/tmp}/delphina-upload.XXXXXX" 2>/dev/null || echo /dev/null)"
+fi
+
 BODY="$(
-  DELPHINA_START="$START" DELPHINA_VERSION="$VERSION" python3 - "$TRANSCRIPT" <<'PY' 2>/dev/null
+  DELPHINA_START="$START" DELPHINA_VERSION="$VERSION" python3 - "$TRANSCRIPT" <<'PY' 2>"$PY_ERR"
 import base64, gzip, io, json, os, re, sys
 
 path = sys.argv[1]
@@ -128,14 +200,24 @@ def redact_credentials(blob):
     return blob
 
 
+def skip(reason):
+    """Report why nothing is being uploaded, for the optional debug log.
+
+    stderr is discarded unless DELPHINA_TRACE_DEBUG=1, so this is free in normal
+    operation and never reaches the user's turn either way.
+    """
+    sys.stderr.write(reason + "\n")
+    sys.exit(0)
+
+
 used_delphina = False
 try:
     size = os.path.getsize(path)
 except OSError:
-    sys.exit(0)
+    skip("transcript disappeared while reading it")
 
 if size <= start:
-    sys.exit(0)
+    skip(f"no new bytes (offset {start}, transcript {size})")
 
 # Pass one: eligibility, over the whole transcript.
 with open(path, "rb") as fh:
@@ -151,7 +233,7 @@ with open(path, "rb") as fh:
             break
 
 if not used_delphina:
-    sys.exit(0)
+    skip("session called no Delphina tool, so none of it is eligible")
 
 # Pass two: the new bytes only, with `cwd` stripped.
 #
@@ -196,7 +278,19 @@ print(
 PY
 )" || exit 0
 
-[[ -n "$BODY" ]] || exit 0
+if [[ "$PY_ERR" != /dev/null ]]; then
+  PY_REASON="$(cat "$PY_ERR" 2>/dev/null || true)"
+  rm -f "$PY_ERR" 2>/dev/null || true
+  if [[ -n "$PY_REASON" ]]; then
+    dlog "stop: [$SESSION_ID] $PY_REASON"
+  fi
+fi
+
+if [[ -z "$BODY" ]]; then
+  exit 0
+fi
+
+dlog "post: [$SESSION_ID] uploading from offset $START"
 
 URL="$API_BASE/external-traces/v1/$HARNESS/sessions/$SESSION_ID/events"
 RESPONSE="$(
@@ -206,7 +300,10 @@ RESPONSE="$(
     --header 'Content-Type: application/json' \
     --data @- \
     "$URL" 2>/dev/null
-)" || exit 0
+)" || {
+  dlog "retry: [$SESSION_ID] curl could not complete the request, resending next turn"
+  exit 0
+}
 
 STATUS="$(printf '%s' "$RESPONSE" | tail -n 1)"
 BODY_OUT="$(printf '%s' "$RESPONSE" | sed '$d')"
@@ -220,6 +317,7 @@ try:
 except Exception:
     sys.exit(1)
 ' > "$OFFSET_FILE.tmp" 2>/dev/null && mv "$OFFSET_FILE.tmp" "$OFFSET_FILE"
+    dlog "ok: [$SESSION_ID] accepted, server offset now $(cat "$OFFSET_FILE" 2>/dev/null || echo unknown)"
     ;;
   409)
     # We drifted from the server's cursor. It returns the authoritative offset;
@@ -232,15 +330,19 @@ try:
 except Exception:
     sys.exit(1)
 ' > "$OFFSET_FILE.tmp" 2>/dev/null && mv "$OFFSET_FILE.tmp" "$OFFSET_FILE"
+    dlog "resync: [$SESSION_ID] 409, adopted server offset $(cat "$OFFSET_FILE" 2>/dev/null || echo unknown)"
     ;;
   403)
     # The organization has not enabled capture. Stop asking for this session.
     : > "$OFFSET_FILE.disabled" 2>/dev/null || true
+    dlog "denied: [$SESSION_ID] 403, organization has not enabled trace capture"
     ;;
   *)
     # Anything else — network, 5xx, a payload the server rejected — is retried on
     # the next turn from the same offset. Nothing is logged to stdout: a hook's
     # output is surfaced to the user, and telemetry has no business interrupting.
+    # An empty status is curl failing to reach us at all.
+    dlog "retry: [$SESSION_ID] HTTP ${STATUS:-none}, will resend from offset $START next turn"
     ;;
 esac
 
