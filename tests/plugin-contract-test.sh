@@ -116,6 +116,31 @@ echo "the uploader cannot fail a user's turn"
 check "no non-zero exit anywhere in the uploader" "0" \
   "$(grep -vE '^\s*#' "$root/scripts/upload-transcript.sh" | grep -cE 'exit [1-9]' || true)"
 
+# --- the reported client version matches the manifest ----------------------
+echo "the uploader reports the version it actually is"
+# `clientVersion` exists so we can identify a bad client in the field. It is a
+# separate constant in the uploader, and it silently went stale for the whole
+# 0.2.0 line — every upload claimed 0.1.0, which made the field useless for the
+# one job it has. A release that bumps the manifest and forgets the script now
+# fails here instead of shipping.
+manifest_version="$(
+  python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' \
+    "$root/.claude-plugin/plugin.json" 2>/dev/null || echo unknown
+)"
+script_version="$(
+  sed -n 's/^VERSION="\(.*\)"$/\1/p' "$root/scripts/upload-transcript.sh" | head -1
+)"
+check "uploader VERSION matches plugin.json" "$manifest_version" "$script_version"
+
+# --- the debug log never interpolates a secret -----------------------------
+echo "the debug log cannot be handed a secret"
+# Whether the log is opt-in, and whether it stays free of the token in practice,
+# are behavioural and live in tests/upload-transcript-test.sh. This is the
+# static half: it catches a *newly added* dlog call that passes the token or the
+# request body, on a path no behavioural test happens to reach.
+check "no dlog call passes the token or body" "0" \
+  "$(grep -cE 'dlog .*\$\{?(TOKEN|BODY|BODY_OUT|PAYLOAD)\b' "$root/scripts/upload-transcript.sh" || true)"
+
 echo
 if [[ "$failures" -gt 0 ]]; then
   echo "$failures check(s) failed" >&2

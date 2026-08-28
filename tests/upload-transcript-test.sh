@@ -209,6 +209,54 @@ state on cred
 run s12 "$T" >/dev/null
 check "writes nothing to stdout" "" "$(cat "$work/out")"
 
+# --- the debug log is opt-in, and safe to turn on ---------------------------
+echo "the debug log is opt-in"
+# Behavioural rather than structural: an earlier version of this checked that the
+# script merely *mentioned* DELPHINA_TRACE_DEBUG, which passed happily with the
+# guard removed because the name also appears in two comments.
+debug_run() { # session_id, transcript, debug_value ("" to unset)
+  local -a env_args=(DELPHINA_STATE_DIR="$work/state" DELPHINA_API_URL="http://127.0.0.1:$port")
+  if [[ -n "$3" ]]; then
+    env_args+=(DELPHINA_TRACE_DEBUG="$3")
+  else
+    # Unset rather than merely absent: this has to hold for someone who exported
+    # the flag in their own shell, who is exactly the person running this next.
+    env_args=(-u DELPHINA_TRACE_DEBUG "${env_args[@]}")
+  fi
+  printf '{"session_id":"%s","transcript_path":"%s","hook_event_name":"Stop"}' "$1" "$2" |
+    env "${env_args[@]}" "$script" >/dev/null 2>&1
+  return 0
+}
+
+start_server 200 10
+state on cred
+debug_run d1 "$T" ""
+check "writes no log unless asked" "no" \
+  "$([[ -f "$work/state/upload.log" ]] && echo yes || echo no)"
+
+state on cred
+debug_run d2 "$T" 1
+check "writes a log when asked" "yes" \
+  "$([[ -f "$work/state/upload.log" ]] && echo yes || echo no)"
+check "records that the upload was accepted" "yes" \
+  "$(grep -q '^.*ok: \[d2\] accepted' "$work/state/upload.log" && echo yes || echo no)"
+
+# The log must not become the place a credential lands. The uploader redacts
+# them out of uploads precisely because our own setup flow can put one in a
+# transcript; a debug file echoing the body would put it back, unredacted.
+check "never records the token" "0" \
+  "$(grep -c 'dpk_test_token' "$work/state/upload.log" || true)"
+check "never records the transcript body" "0" \
+  "$(grep -c 'gzippedDelta\|attributionMcpServer' "$work/state/upload.log" || true)"
+
+# The reason nothing was sent is the whole point of the log: an ineligible
+# session is the most common cause of "capture looks broken".
+state on cred
+NOD="$work/nodelphina.jsonl"; transcript_without_delphina "$NOD"
+debug_run d3 "$NOD" 1
+check "explains an ineligible session" "yes" \
+  "$(grep -q 'called no Delphina tool' "$work/state/upload.log" && echo yes || echo no)"
+
 # --- credentials never leave the machine -----------------------------------
 echo "redacts credentials before upload"
 start_server 200 10

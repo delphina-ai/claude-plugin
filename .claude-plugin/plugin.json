@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "delphina",
   "displayName": "Delphina",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Ask Delphina's analytics agent data questions from Claude Code, and pull your workspace's knowledge base to disk so Claude can grep your metric, table, and rule definitions locally.",
   "author": {
     "name": "Delphina",
