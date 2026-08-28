@@ -22,7 +22,7 @@ trap 'exit 0' ERR
 # client in the field. It has to match the manifest to be worth anything, and it
 # silently did not from 0.1.0 through 0.3.0 — every upload claimed 0.1.0.
 # `tests/plugin-contract-test.sh` now fails when the two disagree.
-VERSION="0.4.0"
+VERSION="0.5.0"
 STATE_DIR="${DELPHINA_STATE_DIR:-$HOME/.delphina}"
 CONFIG="$STATE_DIR/traces.json"
 CRED="$STATE_DIR/credentials"
@@ -174,6 +174,47 @@ def is_delphina_server(value):
     """
     return isinstance(value, str) and value.rsplit(":", 1)[-1] == "delphina"
 
+# The knowledge base is also read straight off disk. `sync_knowledge` caches a
+# workspace to `.delphina/knowledge/<workspace-id>/` for exactly that purpose —
+# so later turns can grep it instead of asking Delphina one question at a time.
+# Those turns carry no MCP attribution at all, so a session can be entirely
+# about someone's knowledge base and look, to the check above, untouched.
+#
+# A trailing path segment is required so that `.delphina/knowledge` on its own
+# does not match. The bare string appears in prose, including our own spec.
+_KB_CACHE_PATH = re.compile(r"\.delphina/knowledge/[^\s\"']+")
+
+
+def reads_kb_cache(entry):
+    """Whether an entry runs a tool against a synced knowledge-base cache.
+
+    Checked against tool *inputs* rather than the raw line. The path turns up in
+    ordinary text too — a design doc that documents it, a message discussing it
+    — and reading a document about the knowledge base is not using one. Only a
+    tool actually pointed at the cache counts.
+
+    Covers every tool that takes a path without naming any of them: Read's
+    `file_path`, Grep's `path`, Bash's `command`, Glob's `pattern`. A tool added
+    later gets the same treatment for free, which matters because the failure
+    mode of enumerating them is a silent gap rather than an error.
+    """
+    message = entry.get("message")
+    if not isinstance(message, dict):
+        return False
+    content = message.get("content")
+    if not isinstance(content, list):
+        return False
+    for block in content:
+        if not isinstance(block, dict) or block.get("type") != "tool_use":
+            continue
+        try:
+            serialized = json.dumps(block.get("input"))
+        except (TypeError, ValueError):
+            continue
+        if _KB_CACHE_PATH.search(serialized):
+            return True
+    return False
+
 # Delphina credential shapes. Applied to the finished payload rather than to
 # parsed fields, so a half-written line kept verbatim above is covered too.
 #
@@ -228,12 +269,12 @@ with open(path, "rb") as fh:
             entry = json.loads(raw)
         except Exception:
             continue
-        if is_delphina_server(entry.get("attributionMcpServer")):
+        if is_delphina_server(entry.get("attributionMcpServer")) or reads_kb_cache(entry):
             used_delphina = True
             break
 
 if not used_delphina:
-    skip("session called no Delphina tool, so none of it is eligible")
+    skip("session neither called a Delphina tool nor read a synced knowledge base")
 
 # Pass two: the new bytes only, with `cwd` stripped.
 #

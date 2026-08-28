@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.5.0
+
+- **Widens what counts as a Delphina session.** Reading a knowledge base that
+  `sync_knowledge` cached to `.delphina/knowledge/` now makes a session
+  eligible, not just calling a Delphina tool. Caching the base so later turns
+  can grep it directly is the whole point of the sync skill, and those turns
+  carry no MCP attribution — so the sessions most about someone's knowledge
+  base were exactly the ones never collected.
+
+  This means **more** sessions upload than before. If you enabled capture under
+  the old rule, re-read the scope in the README: a session that greps a base you
+  synced last week is now eligible in full, including everything else in it,
+  even though it never contacts Delphina.
+
+  Only tools actually pointed at the cache count. The path appears in ordinary
+  prose too — our own spec documents it — and reading a document about the cache
+  is not reading a knowledge base.
+
+  Deliberately not keyed on `attributionPlugin: "delphina"`, which would have
+  been the easy way to catch more. That field names any plugin or skill
+  namespace called "delphina", and in a repository with its own
+  `.claude/skills/delphina/` it fires constantly for internal work that never
+  touches the product — 94% of its occurrences in one real sample.
+
 ## 0.4.0
 
 - `DELPHINA_TRACE_DEBUG=1` writes upload outcomes to `~/.delphina/upload.log`,

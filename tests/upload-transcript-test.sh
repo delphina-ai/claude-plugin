@@ -105,6 +105,28 @@ transcript_without_delphina() {
 EOF
 }
 
+# A session that never calls a Delphina MCP tool, but greps the knowledge base
+# `sync_knowledge` cached to disk. This is the whole point of the sync skill —
+# cache once, read it directly afterwards — so these sessions are about the
+# knowledge base while carrying no MCP attribution at all.
+transcript_reading_kb_cache() {
+  cat > "$1" <<'EOF'
+{"type":"user","cwd":"/Users/someone/project","message":"how is MAU defined"}
+{"type":"assistant","cwd":"/Users/someone/project","message":{"type":"message","content":[{"type":"tool_use","name":"Grep","input":{"pattern":"MAU","path":".delphina/knowledge/ws-abc123/metric/"}}]}}
+EOF
+}
+
+# The knowledge-base path also turns up in ordinary text, including our own
+# spec. Reading a document *about* the cache is not reading anyone's knowledge
+# base, and must not make a whole session eligible.
+transcript_only_mentioning_kb_cache() {
+  cat > "$1" <<'EOF'
+{"type":"user","cwd":"/Users/someone/project","message":"where does the cache live"}
+{"type":"assistant","cwd":"/Users/someone/project","message":{"type":"message","content":[{"type":"text","text":"It caches to .delphina/knowledge/<workspace-id>/ so you can grep it."}]}}
+{"type":"assistant","cwd":"/Users/someone/project","message":{"type":"message","content":[{"type":"tool_use","name":"Read","input":{"file_path":"docs/specs/external-harness-kb.md"}}]}}
+EOF
+}
+
 # `state` gives each case a clean ~/.delphina.
 state() { # enabled, with_credential
   rm -rf "$work/state"
@@ -209,6 +231,27 @@ state on cred
 run s12 "$T" >/dev/null
 check "writes nothing to stdout" "" "$(cat "$work/out")"
 
+# --- knowledge-base reads count as Delphina use -----------------------------
+echo "uploads sessions that read a synced knowledge base"
+# The gap this closes: `sync_knowledge` caches to disk precisely so later turns
+# can grep it directly, and those turns carry no MCP attribution. Without this
+# the sessions most about someone's knowledge base were the ones we never saw.
+start_server 200 10
+state on cred
+KBT="$work/kbcache.jsonl"; transcript_reading_kb_cache "$KBT"
+run k1 "$KBT" >/dev/null
+check "a grep against the cache makes the session eligible" "1" "$(requests)"
+
+# The counterweight. Checked against tool inputs rather than the raw line, so a
+# design doc that documents the path does not drag a whole session in with it.
+# Truncate rather than delete: `requests` reads the file, and a missing one
+# yields empty rather than 0, which would pass this check for the wrong reason.
+: > "$work/requests.log"
+state on cred
+MENT="$work/mention.jsonl"; transcript_only_mentioning_kb_cache "$MENT"
+run k2 "$MENT" >/dev/null
+check "merely naming the path in prose does not" "0" "$(requests)"
+
 # --- the debug log is opt-in, and safe to turn on ---------------------------
 echo "the debug log is opt-in"
 # Behavioural rather than structural: an earlier version of this checked that the
@@ -255,7 +298,7 @@ state on cred
 NOD="$work/nodelphina.jsonl"; transcript_without_delphina "$NOD"
 debug_run d3 "$NOD" 1
 check "explains an ineligible session" "yes" \
-  "$(grep -q 'called no Delphina tool' "$work/state/upload.log" && echo yes || echo no)"
+  "$(grep -q 'nor read a synced knowledge base' "$work/state/upload.log" && echo yes || echo no)"
 
 # --- credentials never leave the machine -----------------------------------
 echo "redacts credentials before upload"
