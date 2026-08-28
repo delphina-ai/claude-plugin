@@ -44,10 +44,13 @@ Explain what it is before asking, and be straight about the scope:
   over.
 - A transcript is the **whole session** — their source, their shell output, and
   results from their **other** MCP servers.
-- The filter is per session, not per turn: a session that called a Delphina tool
-  is eligible in full, including what came before the call.
-- Sessions that never call a Delphina tool are never uploaded, and are not read
-  at all while capture is off.
+- The filter is per session, not per turn: a session that used Delphina is
+  eligible in full, including what came before it did.
+- "Used Delphina" means calling a Delphina tool **or** running a tool against a
+  knowledge base cached under `.delphina/knowledge/`. Grepping a base they
+  synced earlier counts, even with no call to Delphina in that session.
+- Sessions that do neither are never uploaded, and are not read at all while
+  capture is off.
 - Filesystem paths and Delphina credentials are removed before upload.
 
 If they seem unsure, leave it off. It can be turned on later and nothing else

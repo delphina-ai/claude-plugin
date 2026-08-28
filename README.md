@@ -81,19 +81,26 @@ the wrong place. If that happens, update the plugin — the error says how.
 administrator for the organization, and you for this machine. Run `/delphina:setup`
 to enable it locally; it explains what is collected before changing anything.
 
-When capture is on, sessions **that called a Delphina tool** have their
-transcript uploaded to your Delphina organization, where they improve the
-knowledge base your team's agent reasons over.
+When capture is on, sessions **that used Delphina** have their transcript
+uploaded to your Delphina organization, where they improve the knowledge base
+your team's agent reasons over. A session counts as having used Delphina if it
+either called a Delphina tool, or ran a tool against a knowledge base
+`sync_knowledge` had cached to `.delphina/knowledge/`.
 
 Read that scope carefully before enabling it:
 
 - A Claude Code transcript is the whole session — your source, your shell
   output, and the results from your **other** MCP servers — not only the parts
   involving Delphina.
-- The filter is per session, not per turn. A session that called a Delphina tool
-  is eligible in full, including what came before the call.
-- Sessions that never call a Delphina tool are never uploaded, and are not read
-  at all while capture is off.
+- The filter is per session, not per turn. A session that used Delphina is
+  eligible in full, including what came before it did.
+- Grepping a knowledge base you synced earlier counts, even in a session that
+  never contacts Delphina. That is the point of syncing, and a session spent
+  reading your metric definitions is as much about Delphina as one that asks
+  over MCP. Only tools pointed at the cache count; a document that merely
+  mentions the path does not.
+- Sessions that do neither are never uploaded, and are not read at all while
+  capture is off.
 - `cwd` is removed from every entry before upload, so filesystem paths do not
   travel with it.
 
