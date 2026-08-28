@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.2
+
+- Says plainly that **any admin of your organization can read an uploaded
+  transcript**, in both the README and what `/delphina:setup` tells you before
+  you enable capture. That has become true in the Delphina web app, and it is
+  the part someone is most likely to assume works the other way — an uploaded
+  session cannot be taken back, so it belongs in front of the decision rather
+  than after it.
+
 ## 0.5.1
 
 - **Fixes uploads, which have never worked.** The uploader sent its credential
