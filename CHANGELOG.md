@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.0
+
+- `DELPHINA_TRACE_DEBUG=1` writes upload outcomes to `~/.delphina/upload.log`,
+  one line per turn. The uploader has to stay silent on a normal turn — hook
+  output interrupts you, and a non-zero Stop exit traps you in a loop — which
+  left no way for anyone, including us, to answer "did that upload?". Statuses,
+  byte counts, and skip reasons only: never the transcript, never the token.
+- Fixed the uploader reporting `clientVersion: "0.1.0"` on every request. It is
+  a separate constant from the manifest and had gone stale since 0.1.0, so the
+  one field that identifies a bad client in the field named every client
+  identically — including throughout 0.3.0, whose changelog claimed this was
+  already fixed. The release check now fails when the two disagree.
+
 ## 0.3.0
 
 - **Breaking:** `/delphina:setup` replaces `/delphina:setup-traces`, which is
