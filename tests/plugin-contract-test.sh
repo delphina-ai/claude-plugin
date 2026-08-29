@@ -55,6 +55,32 @@ while read -r rel; do
     "$(cd "$root" && git ls-files -s "$rel" 2>/dev/null | awk '{print $1}')"
 done <<<"$hook_commands"
 
+# --- the manifest leaves the conventional hooks file alone -----------------
+echo "the manifest does not redeclare hooks/hooks.json"
+# Claude Code loads hooks/hooks.json by convention, on its own. The manifest's
+# `hooks` field is for *additional* files, so naming the conventional one there
+# asks for the same file twice and the second load is refused: "Duplicate hooks
+# file detected". 0.5.2 shipped that, and it surfaced as a load error on every
+# `/plugin` screen. `claude plugin validate --strict` passes either way — the
+# manifest is well formed, it just says something redundant — so nothing but
+# this check stands between the mistake and a release.
+check "manifest leaves hooks/hooks.json to the convention" "yes" \
+  "$(
+    python3 - "$root/.claude-plugin/plugin.json" <<'PY'
+import json, sys
+
+with open(sys.argv[1]) as fh:
+    declared = json.load(fh).get("hooks", [])
+
+# The field takes either a single path or a list of them.
+if isinstance(declared, str):
+    declared = [declared]
+
+redundant = any(e.removeprefix("./") == "hooks/hooks.json" for e in declared)
+print("no" if redundant else "yes")
+PY
+  )"
+
 # --- every script is executable --------------------------------------------
 echo "all shipped scripts are executable"
 for f in "$root"/scripts/*.sh; do
