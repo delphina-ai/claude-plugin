@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.5.3
+
+- **Fixes the load error every 0.5.2 install shows on its `/plugin` screen.**
+  The manifest ended with `"hooks": "./hooks/hooks.json"`, but Claude Code
+  already loads `hooks/hooks.json` by convention; the `hooks` field is for
+  *additional* files. So the file was asked for twice and the second request was
+  refused — "Duplicate hooks file detected" — which reads like the hooks failed
+  to install.
+
+  They did not: the conventional load happens first and succeeds, so Stop and
+  SessionEnd have been registered and uploads have run normally the whole time.
+  The bug was cosmetic, but it was cosmetic in the one place someone looks to
+  confirm the plugin is healthy.
+
+  `claude plugin validate --strict` passes either way, since a redundant field
+  is still a well-formed one. A contract test now covers it instead.
+
 ## 0.5.2
 
 - Says plainly that **any admin of your organization can read an uploaded
