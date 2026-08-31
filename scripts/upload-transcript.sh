@@ -380,6 +380,20 @@ except Exception:
 ' > "$OFFSET_FILE.tmp" 2>/dev/null && mv "$OFFSET_FILE.tmp" "$OFFSET_FILE"
     dlog "resync: [$SESSION_ID] 409, adopted server offset $(cat "$OFFSET_FILE" 2>/dev/null || echo unknown)"
     ;;
+  401)
+    # The credential is not valid — revoked, deleted, or replaced by a setup run
+    # on another machine. Permanent, exactly like a 403, and retrying it every
+    # turn for the life of the session re-reads and re-gzips the whole
+    # transcript to make a request that cannot succeed. It is also silent
+    # without DELPHINA_TRACE_DEBUG, which is how a machine can sit uploading
+    # nothing for days while looking healthy.
+    #
+    # Marked per session like the 403 rather than globally: a session already
+    # underway stops asking, and the next `/delphina:setup` writes a working
+    # credential that new sessions pick up without anything to clear.
+    : > "$OFFSET_FILE.disabled" 2>/dev/null || true
+    dlog "denied: [$SESSION_ID] 401, credential rejected — re-run /delphina:setup"
+    ;;
   403)
     # The organization has not enabled capture. Stop asking for this session.
     : > "$OFFSET_FILE.disabled" 2>/dev/null || true
