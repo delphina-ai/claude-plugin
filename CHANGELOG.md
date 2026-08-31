@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.6.0
+
+- **A rejected credential now stops the session asking again.** A 401 fell
+  through to the retry branch, so a revoked or replaced token made the uploader
+  re-read and re-gzip the whole transcript every turn, for the life of the
+  session, to send a request that could not succeed. Silently, unless
+  `DELPHINA_TRACE_DEBUG=1` was set — which is how a machine can upload nothing
+  for days while looking healthy. The log line now names the remedy: re-run
+  `/delphina:setup`.
+
+  **This behaviour is already present in 0.5.3.** The change merged alongside
+  that release and its version bump was lost, so 0.5.3 shipped it with no note.
+  Recorded here rather than backdated into 0.5.3's entry, because someone
+  reading these notes to explain what an installed 0.5.3 is doing needs to find
+  it under a heading, not discover it missing from one.
+
 ## 0.5.3
 
 - **Fixes the load error every 0.5.2 install shows on its `/plugin` screen.**

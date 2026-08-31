@@ -22,7 +22,7 @@ trap 'exit 0' ERR
 # client in the field. It has to match the manifest to be worth anything, and it
 # silently did not from 0.1.0 through 0.3.0 — every upload claimed 0.1.0.
 # `tests/plugin-contract-test.sh` now fails when the two disagree.
-VERSION="0.5.3"
+VERSION="0.6.0"
 STATE_DIR="${DELPHINA_STATE_DIR:-$HOME/.delphina}"
 CONFIG="$STATE_DIR/traces.json"
 CRED="$STATE_DIR/credentials"
