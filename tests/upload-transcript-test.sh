@@ -221,6 +221,18 @@ run s9 "$T" >/dev/null
 check "a 409 adopts the server's authoritative offset" "4096" \
   "$(cat "$work/state/offsets/s9" 2>/dev/null)"
 
+# A revoked or replaced credential is as permanent as a disabled org, and it
+# used to retry every turn forever — silently, unless DELPHINA_TRACE_DEBUG was
+# set, which is how a machine can upload nothing for days while looking fine.
+start_server 401 0
+state on cred
+run s401 "$T" >/dev/null
+check "a 401 stops this session asking again" "yes" \
+  "$([[ -f "$work/state/offsets/s401.disabled" ]] && echo yes || echo no)"
+: > "$work/requests.log"
+run s401 "$T" >/dev/null
+check "and the next turn sends nothing" "0" "$(requests)"
+
 start_server 403 0
 state on cred
 run s10 "$T" >/dev/null
