@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.1
+
+No change to what the plugin does. Two files changed so the plugin directory's
+secret scan stops blocking submission:
+
+- The uploader tests build their fake credentials at run time instead of
+  spelling them out. The tests ship inside the plugin, and the scan blocks any
+  file holding a literal shaped like a live credential, fake or not.
+- The README's API-key section links to the Delphina docs instead of showing a
+  `claude mcp add` command with an `Authorization: Bearer` placeholder.
+
 ## 0.7.0
 
 - **The MCP server URL is written out, and `DELPHINA_MCP_URL` no longer

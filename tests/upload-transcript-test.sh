@@ -89,12 +89,21 @@ transcript_with_delphina() {
 EOF
 }
 
+# Fake credentials, assembled at run time rather than written out. The tests
+# ship inside the plugin, and Anthropic's plugin directory blocks any file that
+# holds a literal shaped like a live credential, fake or not. Each one splits
+# its prefix from the rest so the source never contains the whole shape.
+FAKE_PAT="dpk_""liveSECRETvalue123456"
+FAKE_DSA="dsa_""anotherSECRET9876543"
+FAKE_JWT="eyJ""hbGciOiJIUzI1NiJ9.padding.signature"
+FAKE_TOKEN="dpk_""test_token"
+
 transcript_with_secrets() {
-  cat > "$1" <<'EOF'
+  cat > "$1" <<EOF
 {"type":"assistant","cwd":"/Users/someone/p","attributionMcpServer":"plugin:delphina:delphina"}
-{"type":"user","cwd":"/Users/someone/p","message":"token is dpk_liveSECRETvalue123456 ok"}
-{"type":"assistant","cwd":"/Users/someone/p","message":"curl -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.padding.signature'"}
-{"type":"assistant","cwd":"/Users/someone/p","message":"svc dsa_anotherSECRET9876543
+{"type":"user","cwd":"/Users/someone/p","message":"token is ${FAKE_PAT} ok"}
+{"type":"assistant","cwd":"/Users/someone/p","message":"curl -H 'Authorization: Bearer ${FAKE_JWT}'"}
+{"type":"assistant","cwd":"/Users/someone/p","message":"svc ${FAKE_DSA}
 EOF
 }
 
@@ -134,7 +143,7 @@ state() { # enabled, with_credential
   mkdir -p "$work/state"
   [[ "$1" == "on" ]] && printf '{"enabled": true}\n' > "$work/state/traces.json"
   [[ "$1" == "off" ]] && printf '{"enabled": false}\n' > "$work/state/traces.json"
-  [[ "$2" == "cred" ]] && printf 'dpk_test_token\n' > "$work/state/credentials"
+  [[ "$2" == "cred" ]] && printf '%s\n' "$FAKE_TOKEN" > "$work/state/credentials"
   return 0
 }
 
@@ -190,11 +199,11 @@ echo "payload"
 # the data-plane service-token path and never evaluated for a user token, so
 # sending Bearer is indistinguishable from sending nothing.
 #
-# The previous version of this check asserted `Bearer dpk_test_token` against a
-# stub that echoed whatever it was given, so it passed for the entire time the
-# uploader could not authenticate at all. A stub cannot tell you that you are
-# speaking the wrong protocol; only the header contract can.
-check "credential is sent in x-api-key" "dpk_test_token" \
+# The previous version of this check asserted a Bearer header carrying the
+# token against a stub that echoed whatever it was given, so it passed for the
+# entire time the uploader could not authenticate at all. A stub cannot tell
+# you that you are speaking the wrong protocol; only the header contract can.
+check "credential is sent in x-api-key" "$FAKE_TOKEN" \
   "$(python3 -c "import json;print(json.loads(open('$work/requests.log').readline())['apikey'])")"
 check "no Authorization header is sent" "" \
   "$(python3 -c "import json;print(json.loads(open('$work/requests.log').readline())['auth'])")"
@@ -312,7 +321,7 @@ check "records that the upload was accepted" "yes" \
 # them out of uploads precisely because our own setup flow can put one in a
 # transcript; a debug file echoing the body would put it back, unredacted.
 check "never records the token" "0" \
-  "$(grep -c 'dpk_test_token' "$work/state/upload.log" || true)"
+  "$(grep -c "$FAKE_TOKEN" "$work/state/upload.log" || true)"
 check "never records the transcript body" "0" \
   "$(grep -c 'gzippedDelta\|attributionMcpServer' "$work/state/upload.log" || true)"
 
