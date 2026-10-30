@@ -150,23 +150,16 @@ The plugin points at Delphina's production MCP server,
 `https://app.delphina.ai/api/mcp`. That is the right value for essentially
 everyone, and there is nothing to configure.
 
-If Delphina gave you a different URL for your deployment, set `DELPHINA_MCP_URL`
-before starting Claude Code:
+If Delphina gave you a different URL for your deployment, add that server
+yourself:
 
 ```bash
-export DELPHINA_MCP_URL=https://your-host.example.com/api/mcp
+claude mcp add --scope user --transport http delphina https://your-host.example.com/api/mcp
 ```
 
-To make it stick, put it in your shell profile, or in the `env` block of your
-Claude Code [settings file](https://code.claude.com/docs/en/settings):
-
-```json
-{
-  "env": {
-    "DELPHINA_MCP_URL": "https://your-host.example.com/api/mcp"
-  }
-}
-```
+Then run `/mcp`, select `plugin:delphina:delphina`, and disable it, so Claude
+does not see two sets of Delphina tools. The setup command, knowledge sync, and
+trace capture all work with a server you added this way.
 
 ### Authorizing without OAuth
 
@@ -209,6 +202,34 @@ so engineers do not run the `marketplace add` step themselves:
 `autoUpdate` turns on background updates fleet-wide, so seats do not have to
 toggle it individually.
 
+## Where it works
+
+Everything above is for Claude Code. If you add the plugin from Anthropic's
+directory on claude.ai, it also loads in Cowork and in chat, with less:
+
+- **Chat:** the Delphina MCP server appears as a connector you connect on the
+  plugin's **Connectors** tab. Knowledge sync and trace capture need a local
+  shell and a home directory, so they do nothing useful there.
+- **Cowork:** the MCP server and the skills load. Trace capture's hooks load
+  too and obey the same `~/.delphina/traces.json` switch, so capture stays off
+  unless it was turned on where that session runs. It has only been tested with
+  Claude Code transcripts.
+
+## What it sends and fetches
+
+- **The MCP server** at `https://app.delphina.ai/api/mcp`, for every Delphina
+  tool call, using the OAuth credential Claude Code stores.
+- **Knowledge snapshots**, downloaded by `scripts/apply-snapshot.sh` from the
+  short-lived Amazon S3 URL that `sync_knowledge` returns, and unpacked into
+  `.delphina/knowledge/` in your project.
+- **Transcripts**, only when trace capture is on: `scripts/upload-transcript.sh`
+  sends the new part of an eligible session's transcript to
+  `https://app.delphina.ai/api/external-traces/`, authenticated with the token
+  in `~/.delphina/credentials`. See [Trace capture](#trace-capture) for what is
+  eligible and what is removed first.
+
+Nothing else leaves your machine.
+
 ## What's in here
 
 This repository is both a Claude Code plugin and a single-plugin marketplace:
@@ -217,6 +238,7 @@ This repository is both a Claude Code plugin and a single-plugin marketplace:
 | --------------------------------- | ------------------------------------------------------------- |
 | `.claude-plugin/plugin.json`      | Plugin manifest — name, version, and metadata                  |
 | `.claude-plugin/marketplace.json` | Marketplace catalog listing this plugin at the repository root |
+| `.claude-plugin/icon.png`         | Listing icon for Anthropic's plugin directory                  |
 | `.mcp.json`                       | The Delphina MCP server definition                             |
 | `skills/sync-knowledge/`          | The knowledge-base sync skill                                  |
 | `scripts/apply-snapshot.sh`       | Downloads, version-checks, and atomically installs a snapshot  |
