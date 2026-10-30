@@ -165,18 +165,10 @@ trace capture all work with a server you added this way.
 
 OAuth is preferred: there is no long-lived key to copy around, and access follows
 your Delphina account. If you are in an environment that cannot complete a browser
-sign-in — CI, a headless container — use an API key instead.
-
-In Delphina, go to **Settings → Connect to Delphina MCP → General**, expand
-**API Key Authorization**, and copy the **Authorization Header** value. Then
-configure the server directly rather than through this plugin:
-
-```bash
-claude mcp add --scope user --transport http delphina https://app.delphina.ai/api/mcp \
-  --header "Authorization: Bearer YOUR_API_KEY"
-```
-
-Treat that key like a password. Do not commit it.
+sign-in — CI, a headless container — configure the server with an API key
+directly rather than through this plugin. The
+[API key authorization](https://docs.delphina.ai/integrations/delphina-mcp#api-key-authorization)
+section of the Delphina docs shows how.
 
 ## Deploying to a team
 
