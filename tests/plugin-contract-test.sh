@@ -167,6 +167,15 @@ echo "the debug log cannot be handed a secret"
 check "no dlog call passes the token or body" "0" \
   "$(grep -cE 'dlog .*\$\{?(TOKEN|BODY|BODY_OUT|PAYLOAD)\b' "$root/scripts/upload-transcript.sh" || true)"
 
+# --- the MCP URL is one the directory accepts -------------------------------
+echo "the MCP server URL is a literal https URL"
+# Anthropic's plugin directory blocks a remote server whose url is anything but
+# an absolute https:// URL, a ${user_config.KEY} reference, or "". Up to 0.6.0
+# this was ${DELPHINA_MCP_URL:-...}, which `claude plugin validate --strict`
+# accepts, so nothing local caught it; the portal refused it at submission.
+check "delphina points at production" "https://app.delphina.ai/api/mcp" \
+  "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["mcpServers"]["delphina"]["url"])' "$root/.mcp.json")"
+
 echo
 if [[ "$failures" -gt 0 ]]; then
   echo "$failures check(s) failed" >&2

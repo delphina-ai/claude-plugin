@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.0
+
+- **The MCP server URL is written out, and `DELPHINA_MCP_URL` no longer
+  changes it.** Anthropic's plugin directory accepts only a literal `https://`
+  URL in `.mcp.json`, and an install from claude.ai never sees your shell
+  environment anyway. Every customer already uses `app.delphina.ai`, so this
+  only affects someone who set the variable to reach another deployment. They
+  now add that server with `claude mcp add` and disable the plugin's copy in
+  `/mcp`. The README shows how.
+- **The README says what the plugin sends and fetches, and what works outside
+  Claude Code.** The directory's security review checks that a plugin discloses
+  every destination, and a directory install also reaches Cowork and claude.ai
+  chat, where knowledge sync and trace capture do less.
+- **A listing icon and a privacy policy URL**, which the directory asks for
+  from any plugin that connects to a remote server. The icon is the Delphina
+  mark from the docs site's logo.
+
 ## 0.6.0
 
 - **A rejected credential now stops the session asking again.** A 401 fell

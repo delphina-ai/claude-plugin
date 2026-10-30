@@ -2,7 +2,7 @@
   "mcpServers": {
     "delphina": {
       "type": "http",
-      "url": "${DELPHINA_MCP_URL:-https://app.delphina.ai/api/mcp}"
+      "url": "https://app.delphina.ai/api/mcp"
     }
   }
 }
