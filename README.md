@@ -230,7 +230,6 @@ This repository is both a Claude Code plugin and a single-plugin marketplace:
 | --------------------------------- | ------------------------------------------------------------- |
 | `.claude-plugin/plugin.json`      | Plugin manifest — name, version, and metadata                  |
 | `.claude-plugin/marketplace.json` | Marketplace catalog listing this plugin at the repository root |
-| `.claude-plugin/icon.png`         | Listing icon for Anthropic's plugin directory                  |
 | `.mcp.json`                       | The Delphina MCP server definition                             |
 | `skills/sync-knowledge/`          | The knowledge-base sync skill                                  |
 | `scripts/apply-snapshot.sh`       | Downloads, version-checks, and atomically installs a snapshot  |
