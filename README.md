@@ -9,9 +9,9 @@ pull back results, and file issues — the same agent you get in the web app and
 Slack. Delphina answers using your team's warehouse and curated knowledge base;
 Claude Code sees the answers, not the underlying data.
 
-It can also sync your **knowledge base** — the curated metrics, tables, notes, and
-rules Delphina reasons over — to a local folder, so Claude can grep your team's
-definitions directly instead of asking one question at a time. See
+It can also read your **knowledge base** — the curated metrics, tables, notes, and
+rules Delphina reasons over. Claude searches it for a one-off definition, or syncs
+it to a local folder and greps your team's definitions directly. See
 [Knowledge sync](#knowledge-sync).
 
 > **Beta.** The Delphina MCP server is in beta and must be enabled for your
@@ -54,8 +54,12 @@ claude plugin update delphina@delphina
 
 ## Knowledge sync
 
-Ask Claude to "sync the Delphina knowledge base" (or just ask a question about
-your metrics) and it will pull a snapshot to
+For a single question, such as how a metric is defined or which table holds a
+column, Claude searches the knowledge base with `search_knowledge` and reads only
+the documents it needs. Nothing is downloaded.
+
+When a session leans on your definitions throughout, or when you ask Claude to
+"sync the Delphina knowledge base", it pulls a snapshot to
 `.delphina/knowledge/<workspace-id>/` — one markdown file per document, laid out
 as `<namespace>/<type>/<name>.md`.
 
@@ -200,8 +204,9 @@ Everything above is for Claude Code. If you add the plugin from Anthropic's
 directory on claude.ai, it also loads in Cowork and in chat, with less:
 
 - **Chat:** the Delphina MCP server appears as a connector you connect on the
-  plugin's **Connectors** tab. Knowledge sync and trace capture need a local
-  shell and a home directory, so they do nothing useful there.
+  plugin's **Connectors** tab. Knowledge search works there, because it is only
+  connector tools. Knowledge sync and trace capture need a local shell and a
+  home directory, so they do nothing useful there.
 - **Cowork:** the MCP server and the skills load. Trace capture's hooks load
   too and obey the same `~/.delphina/traces.json` switch, so capture stays off
   unless it was turned on where that session runs. It has only been tested with

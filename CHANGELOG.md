@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.8.0
+
+- **One-off definition questions are answered by search, not a download.**
+  The sync-knowledge skill now sends a single lookup, such as how a metric is
+  defined or which table holds a column, to `search_knowledge` and
+  `read_knowledge_document`, which Delphina's MCP server serves from its
+  knowledge search index. A full sync is still the choice for a session that
+  leans on the data model throughout, and whenever the user asks for one.
+- **The sync stays the fallback.** When search is missing, says it is not
+  available for the workspace, or finds nothing in a workspace that has not
+  been indexed yet, the skill syncs instead, so a deployment or workspace
+  without search loses nothing.
+
 ## 0.7.1
 
 No change to what the plugin does. Two files changed so the plugin directory's
