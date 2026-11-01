@@ -1,23 +1,49 @@
 ---
 name: sync-knowledge
-description: Download a local copy of a Delphina workspace's knowledge base — its curated metrics, tables, notes, and rules — so you can grep and read it directly instead of asking Delphina one question at a time. Use when the user asks about their metrics, table semantics, or business definitions; when you need to know how a metric is defined before writing a query; or when they ask to sync, refresh, or pull the knowledge base.
+description: Look up a Delphina workspace's knowledge base — its curated metrics, tables, notes, and rules — by searching it one question at a time, or by downloading a local copy to grep and read directly. Use when the user asks about their metrics, table semantics, or business definitions; when you need to know how a metric is defined before writing a query; or when they ask to sync, refresh, or pull the knowledge base.
 ---
 
-# Sync a Delphina knowledge base
+# Read a Delphina knowledge base
 
-Pull a workspace's knowledge base to disk so you can read and grep it locally.
+There are two ways to read a workspace's knowledge base: search it and read
+single documents through Delphina's tools, or download all of it and read and
+grep it locally.
 
-## When this is worth doing
+## Search, or sync
 
-Do it once at the start of a session where the user's questions depend on their
-data model — metric definitions, table semantics, business rules. After that the
+**Search** for a one-off lookup: one metric's definition, which table holds a
+column, a business rule the user named. Call `search_knowledge` with the term,
+then `read_knowledge_document` with the `path` of the result you want. To see
+what one namespace holds, call `list_knowledge_documents` with `namespace`.
+Nothing is downloaded and nothing is written to disk.
+
+**Sync** when the session depends on the data model throughout, for example
+when the user is working through several definitions or writing queries that
+need many tables' semantics, and whenever they ask to sync, refresh, or pull the
+knowledge base. Do it once, at the start of the session. After that the
 knowledge base is just files, and normal Read/Grep answer follow-ups with no
-further round-trips.
+further round-trips. If an earlier session left a copy under
+`.delphina/knowledge/`, sync again rather than searching: a sync transfers
+nothing when the copy is current, and then you can grep it.
+
+Sync even for a one-off lookup when search cannot answer it:
+
+- `search_knowledge` is not among your tools, or it says knowledge search is
+  not available for this workspace. Some deployments and workspaces have no
+  search index.
+- Search finds nothing for a term you expected. Try other words first, such as a
+  synonym or the table's name. Before telling the user a definition does not
+  exist, call `list_knowledge_documents`: an `indexed_sha` of null means the
+  workspace has not been indexed yet, so empty results prove nothing.
+- `read_knowledge_document` says a document is too large or is not text.
+
+Search answers at the version its index holds, which can trail a change made in
+the last few minutes. A sync always returns the newest version.
 
 Do not sync before every question. The knowledge base changes on the order of
 days, not minutes.
 
-## Steps
+## Syncing
 
 **1. Decide which workspace.**
 
@@ -109,5 +135,5 @@ Delphina, and the next sync overwrites them — if the user wants to change a
 definition, that is a Delphina KB edit, not a file edit here.
 
 It is also a point-in-time copy. When precision matters — a number the user will
-act on, or a definition they say was changed recently — re-run this skill with
-the cached snapshot id instead of trusting the copy on disk.
+act on, or a definition they say was changed recently — sync again with the
+cached snapshot id instead of trusting the copy on disk or a search result.
