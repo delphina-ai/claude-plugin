@@ -1,5 +1,5 @@
 ---
-description: Set up Delphina in Claude Code — check the connection, pick a workspace, and optionally sync the knowledge base.
+description: Set up Delphina in Claude Code — check the connection, pick a workspace, optionally sync the knowledge base and enable trace capture.
 ---
 
 # Set up Delphina
@@ -32,28 +32,115 @@ locally. If yes, follow the `sync-knowledge` skill.
 Worth saying: it makes definition questions answerable without a round trip, and
 the copy is read-only — editing the files changes nothing in Delphina.
 
-## 3. Clean up an older trace-capture setup
+## 3. Offer trace capture
 
-Versions of this plugin up to 0.8.0 could upload session transcripts to
-Delphina ("trace capture"). This version cannot, and uploads nothing. Check
-whether an older version set this machine up for it:
+**Only if they ask, or if they are setting up for a team.** It is off by
+default and most people do not need it. Never enable it without an explicit yes.
+
+Explain what it is before asking, and be straight about the scope:
+
+- It sends transcripts of sessions **that used Delphina tools** to their
+  organization, where they improve the knowledge base the team's agent reasons
+  over.
+- A transcript is the **whole session** — their source, their shell output, and
+  results from their **other** MCP servers.
+- **Any admin of their organization can read an uploaded transcript**, not only
+  them. Say this plainly: it is the part someone is most likely to assume works
+  the other way, and it is the hardest to take back once a session is uploaded.
+- The filter is per session, not per turn: a session that used Delphina is
+  eligible in full, including what came before it did.
+- "Used Delphina" means calling a Delphina tool **or** running a tool against a
+  knowledge base cached under `.delphina/knowledge/`. Grepping a base they
+  synced earlier counts, even with no call to Delphina in that session.
+- Sessions that do neither are never uploaded, and are not read at all while
+  capture is off.
+- Filesystem paths and Delphina credentials are removed before upload.
+
+If they seem unsure, leave it off. It can be turned on later and nothing else
+depends on it.
+
+### If they say yes
+
+**The credential.** Call `create_trace_upload_token`. It returns a token scoped
+to `traces:write` and nothing else — it cannot read their chats, write to the
+knowledge base, or file issues.
+
+Pass a `label` naming this machine ("work laptop"), so a user with several
+machines can tell the tokens apart later and revoke just one.
+
+If `~/.delphina/token-id` already exists, this machine was set up before. Pass
+its contents as `replaces_token_id` so the old credential is retired instead of
+being left live forever:
 
 ```bash
-ls ~/.delphina/credentials ~/.delphina/token-id ~/.delphina/traces.json 2>/dev/null
+cat ~/.delphina/token-id 2>/dev/null
 ```
 
-If nothing is listed, skip this step. Otherwise tell them that capture has
-stopped, and that the upload credential it left behind is still live on the
-server until they revoke it. To retire it:
+Only ever pass an id that came from that file. It is how this machine retires
+its own predecessor, not a general revoke — an id from anywhere else is either
+a no-op or someone else's problem.
 
-1. Revoke it in Delphina under **Settings → API Key**. It is the key whose label
-   names this machine.
-2. Then, only if they say yes, remove the local copies:
+**Write it to disk without echoing it.** The token is a secret and this is the
+feature that uploads transcripts, so do not print it, summarize it, or paste it
+into a command whose output is shown. Write it directly:
 
 ```bash
-rm -f ~/.delphina/credentials ~/.delphina/token-id ~/.delphina/traces.json
-rm -rf ~/.delphina/offsets
+mkdir -p ~/.delphina && chmod 700 ~/.delphina
+touch ~/.delphina/credentials && chmod 600 ~/.delphina/credentials
 ```
 
-Revoke first: deleting the files alone leaves the token valid on the server.
-Do not print the contents of `~/.delphina/credentials`; it is a secret.
+Then write the `token` value into `~/.delphina/credentials` and the `token_id`
+value into `~/.delphina/token-id`, each on its own line with no other content.
+
+The uploader redacts Delphina credentials before sending, so a slip is
+contained rather than published — but that is a backstop, not a reason to be
+casual.
+
+**The local switch.**
+
+```bash
+mkdir -p ~/.delphina && printf '{"enabled": true}\n' > ~/.delphina/traces.json
+```
+
+Capture is off unless this says otherwise, and it is checked before the
+transcript is opened at all.
+
+**The other gate.** Check `organization_capture_enabled` in the tool's response.
+When it is `false`, the credential is valid but the server will refuse uploads
+until an org admin enables capture under **Org Admin → Trace Capture**. Say so
+plainly — it is the most common reason nothing happens, and the user cannot fix
+it themselves.
+
+## Turning trace capture off
+
+```bash
+printf '{"enabled": false}\n' > ~/.delphina/traces.json
+```
+
+Uploads stop immediately and the transcript stops being read.
+
+To retire the credential as well, revoke it in Delphina under **Settings → API
+Key** (find it by the label given at setup), then remove the local copies:
+
+```bash
+rm -f ~/.delphina/credentials ~/.delphina/token-id
+```
+
+Deleting the files alone leaves the token live on the server, so revoke first.
+Uninstalling the plugin stops the hook entirely.
+
+## If uploads are not happening
+
+Each gate is silent by design — a hook's output would interrupt the user — so
+check in order:
+
+1. `cat ~/.delphina/traces.json` — is `enabled` true?
+2. `ls -l ~/.delphina/credentials` — present and non-empty?
+3. Did the session actually call a Delphina tool?
+4. `ls ~/.delphina/offsets/` — a `.disabled` file means the server returned 403,
+   so the organization has not enabled capture. That is an admin setting.
+5. Was the credential revoked? Re-running setup on this machine retires the
+   previous token, so a second machine sharing a copied credentials file stops
+   working. Each machine should run setup and hold its own token.
+
+A number in `~/.delphina/offsets/<session-id>` means an upload was accepted.
