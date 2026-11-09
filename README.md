@@ -198,20 +198,6 @@ so engineers do not run the `marketplace add` step themselves:
 `autoUpdate` turns on background updates fleet-wide, so seats do not have to
 toggle it individually.
 
-## Where it works
-
-Everything above is for Claude Code. If you add the plugin from Anthropic's
-directory on claude.ai, it also loads in Cowork and in chat, with less:
-
-- **Chat:** the Delphina MCP server appears as a connector you connect on the
-  plugin's **Connectors** tab. Knowledge search works there, because it is only
-  connector tools. Knowledge sync and trace capture need a local shell and a
-  home directory, so they do nothing useful there.
-- **Cowork:** the MCP server and the skills load. Trace capture's hooks load
-  too and obey the same `~/.delphina/traces.json` switch, so capture stays off
-  unless it was turned on where that session runs. It has only been tested with
-  Claude Code transcripts.
-
 ## What it sends and fetches
 
 - **The MCP server** at `https://app.delphina.ai/api/mcp`, for every Delphina
