@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.9.0
+
+Anthropic's plugin directory accepts hooks and scripts only from verified
+organizations, and refused this plugin for both. This release has neither.
+
+- **Trace capture is gone.** It ran as a Stop and SessionEnd hook, and nothing
+  else in a plugin can run at the end of a turn. Once you update, no session is
+  uploaded, whatever `~/.delphina/traces.json` says. If you turned capture on,
+  the upload credential that setup stored in `~/.delphina/credentials` stays
+  valid until you revoke it. Run `/delphina:setup` once and it walks you
+  through revoking it and removing the files.
+- **Knowledge sync no longer needs a script.** The sync-knowledge skill now
+  holds the install steps itself, and Claude runs them with `curl` and `unzip`.
+  They do what `scripts/apply-snapshot.sh` did: refuse an unknown layout,
+  refuse a workspace id or archive entry that would write outside the cache,
+  and replace the previous snapshot only after the new one has unpacked. The
+  cache path and layout are unchanged, so an existing cache stays current.
+
 ## 0.8.0
 
 - **One-off definition questions are answered by search, not a download.**

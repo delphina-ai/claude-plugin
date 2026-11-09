@@ -79,75 +79,6 @@ Each snapshot declares the directory layout it uses, and the plugin refuses one
 it does not understand rather than extracting a tree it would then look for in
 the wrong place. If that happens, update the plugin — the error says how.
 
-## Trace capture
-
-**Off by default, and off until two separate people turn it on** — a Delphina
-administrator for the organization, and you for this machine. Run `/delphina:setup`
-to enable it locally; it explains what is collected before changing anything.
-
-When capture is on, sessions **that used Delphina** have their transcript
-uploaded to your Delphina organization, where they improve the knowledge base
-your team's agent reasons over. A session counts as having used Delphina if it
-either called a Delphina tool, or ran a tool against a knowledge base
-`sync_knowledge` had cached to `.delphina/knowledge/`.
-
-Read that scope carefully before enabling it:
-
-- A Claude Code transcript is the whole session — your source, your shell
-  output, and the results from your **other** MCP servers — not only the parts
-  involving Delphina.
-- **Any admin of your Delphina organization can read an uploaded transcript.**
-  Not only you, and not only the parts about Delphina.
-- The filter is per session, not per turn. A session that used Delphina is
-  eligible in full, including what came before it did.
-- Grepping a knowledge base you synced earlier counts, even in a session that
-  never contacts Delphina. That is the point of syncing, and a session spent
-  reading your metric definitions is as much about Delphina as one that asks
-  over MCP. Only tools pointed at the cache count; a document that merely
-  mentions the path does not.
-- Sessions that do neither are never uploaded, and are not read at all while
-  capture is off.
-- `cwd` is removed from every entry before upload, so filesystem paths do not
-  travel with it.
-
-Turn it off at any time:
-
-```bash
-printf '{"enabled": false}\n' > ~/.delphina/traces.json
-```
-
-Uninstalling the plugin removes the hook entirely.
-
-### Checking whether it is working
-
-The uploader is silent by design. It runs on every turn, and a hook that writes
-to your terminal — or exits non-zero, which Claude Code reads as "do not stop" —
-would interrupt your work to report on telemetry. The cost is that "did that
-upload?" has no visible answer.
-
-Set `DELPHINA_TRACE_DEBUG=1` to get one:
-
-```bash
-DELPHINA_TRACE_DEBUG=1 claude
-```
-
-Outcomes are appended to `~/.delphina/upload.log`, one line per turn:
-
-```
-2026-08-27T22:14:03Z ok: [abc123] accepted, server offset now 48210
-2026-08-27T22:15:41Z stop: [abc123] session called no Delphina tool, so none of it is eligible
-2026-08-27T22:16:02Z denied: [abc123] 403, organization has not enabled trace capture
-```
-
-The log records statuses, byte counts, and skip reasons — never your transcript
-and never your token. It is written only while the variable is set, and the file
-is truncated once it passes 256 KB.
-
-Without the flag, the same states are still readable from
-`~/.delphina/offsets/<session-id>`: it holds the byte offset the server has
-acknowledged, so a number that grows means uploads are landing. A sibling file
-ending in `.disabled` means your organization has capture switched off.
-
 ## Configuration
 
 The plugin points at Delphina's production MCP server,
@@ -162,8 +93,8 @@ claude mcp add --scope user --transport http delphina https://your-host.example.
 ```
 
 Then run `/mcp`, select `plugin:delphina:delphina`, and disable it, so Claude
-does not see two sets of Delphina tools. The setup command, knowledge sync, and
-trace capture all work with a server you added this way.
+does not see two sets of Delphina tools. The setup command and knowledge sync
+both work with a server you added this way.
 
 ### Authorizing without OAuth
 
@@ -205,42 +136,41 @@ directory on claude.ai, it also loads in Cowork and in chat, with less:
 
 - **Chat:** the Delphina MCP server appears as a connector you connect on the
   plugin's **Connectors** tab. Knowledge search works there, because it is only
-  connector tools. Knowledge sync and trace capture need a local shell and a
-  home directory, so they do nothing useful there.
-- **Cowork:** the MCP server and the skills load. Trace capture's hooks load
-  too and obey the same `~/.delphina/traces.json` switch, so capture stays off
-  unless it was turned on where that session runs. It has only been tested with
-  Claude Code transcripts.
+  connector tools. Knowledge sync needs a local shell, so it does nothing
+  useful there.
+- **Cowork:** the MCP server and the skills load.
 
 ## What it sends and fetches
 
 - **The MCP server** at `https://app.delphina.ai/api/mcp`, for every Delphina
   tool call, using the OAuth credential Claude Code stores.
-- **Knowledge snapshots**, downloaded by `scripts/apply-snapshot.sh` from the
-  short-lived Amazon S3 URL that `sync_knowledge` returns, and unpacked into
-  `.delphina/knowledge/` in your project.
-- **Transcripts**, only when trace capture is on: `scripts/upload-transcript.sh`
-  sends the new part of an eligible session's transcript to
-  `https://app.delphina.ai/api/external-traces/`, authenticated with the token
-  in `~/.delphina/credentials`. See [Trace capture](#trace-capture) for what is
-  eligible and what is removed first.
+- **Knowledge snapshots**, downloaded with `curl` by the sync-knowledge skill
+  from the short-lived Amazon S3 URL that `sync_knowledge` returns, and
+  unpacked into `.delphina/knowledge/` in your project.
 
 Nothing else leaves your machine.
 
 ## What's in here
 
-This repository is both a Claude Code plugin and a single-plugin marketplace:
+This repository is both a Claude Code plugin and a single-plugin marketplace.
+It holds no scripts or hooks: everything the plugin does runs through the MCP
+server or through instructions in its skill and command.
 
 | Path                              | Purpose                                                       |
 | --------------------------------- | ------------------------------------------------------------- |
 | `.claude-plugin/plugin.json`      | Plugin manifest — name, version, and metadata                  |
 | `.claude-plugin/marketplace.json` | Marketplace catalog listing this plugin at the repository root |
 | `.mcp.json`                       | The Delphina MCP server definition                             |
-| `skills/sync-knowledge/`          | The knowledge-base sync skill                                  |
-| `scripts/apply-snapshot.sh`       | Downloads, version-checks, and atomically installs a snapshot  |
-| `commands/setup.md`               | `/delphina:setup` — connection check, knowledge base, traces   |
-| `hooks/hooks.json`                | Runs the uploader on Stop and SessionEnd                       |
-| `scripts/upload-transcript.sh`    | Uploads the new part of an eligible session's transcript       |
+| `skills/sync-knowledge/`          | Knowledge-base search, and the sync that installs a snapshot   |
+| `commands/setup.md`               | `/delphina:setup` — connection check and knowledge base        |
+
+## Trace capture
+
+Versions up to 0.8.0 could upload transcripts of sessions that used Delphina
+to your organization. That feature ran as a hook, which Anthropic's plugin
+directory does not accept from us, so 0.9.0 removed it. If you turned it on
+before, run `/delphina:setup` once: it finds the credential that setup left
+behind and walks you through revoking it.
 
 ## Support
 
