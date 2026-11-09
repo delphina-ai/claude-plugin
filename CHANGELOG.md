@@ -1,22 +1,28 @@
 # Changelog
 
+## 0.9.1
+
+**Restores everything 0.9.0 removed.** 0.9.0 dropped trace capture and the
+snapshot install script so Anthropic's plugin directory would accept the
+plugin. We withdrew the directory submission instead, so this release is 0.8.0
+again with a higher version number, which lets installs that took 0.9.0 update
+back.
+
+If you were on 0.9.0:
+
+- **Trace capture uploads again** if it was on before you updated, as long as
+  `~/.delphina/traces.json` and `~/.delphina/credentials` are still there.
+- **If 0.9.0's `/delphina:setup` removed those files**, run `/delphina:setup`
+  again to turn capture back on. If you revoked the old credential as it
+  suggested, setup issues a new one.
+- **Knowledge sync** goes back to `scripts/apply-snapshot.sh`. The cache path
+  and layout did not change, so an existing cache stays current.
+
 ## 0.9.0
 
-Anthropic's plugin directory accepts hooks and scripts only from verified
-organizations, and refused this plugin for both. This release has neither.
-
-- **Trace capture is gone.** It ran as a Stop and SessionEnd hook, and nothing
-  else in a plugin can run at the end of a turn. Once you update, no session is
-  uploaded, whatever `~/.delphina/traces.json` says. If you turned capture on,
-  the upload credential that setup stored in `~/.delphina/credentials` stays
-  valid until you revoke it. Run `/delphina:setup` once and it walks you
-  through revoking it and removing the files.
-- **Knowledge sync no longer needs a script.** The sync-knowledge skill now
-  holds the install steps itself, and Claude runs them with `curl` and `unzip`.
-  They do what `scripts/apply-snapshot.sh` did: refuse an unknown layout,
-  refuse a workspace id or archive entry that would write outside the cache,
-  and replace the previous snapshot only after the new one has unpacked. The
-  cache path and layout are unchanged, so an existing cache stays current.
+Removed trace capture and moved the snapshot install into the sync-knowledge
+skill, for Anthropic's plugin directory. Superseded by 0.9.1, which restores
+both.
 
 ## 0.8.0
 

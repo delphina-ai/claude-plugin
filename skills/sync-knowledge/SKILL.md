@@ -87,83 +87,24 @@ by id.
 - `unchanged: true` — the local copy is current. Stop here; do not re-download.
 - `commit_sha: null` — this workspace has no knowledge base yet. Tell the user
   rather than reporting a successful sync of nothing.
-- Otherwise, install the snapshot with the block below.
+- Otherwise, install the snapshot:
 
-**5. Install the snapshot.**
-
-Run this block as one Bash command, from the user's project directory. Change
-only the three quoted values on its first lines, setting each to the value
-`sync_knowledge` returned, and run the rest exactly as written: each line guards
-against a way a cache can end up silently wrong.
-
-<!-- install-snapshot:begin -->
 ```bash
-(
-  set -euo pipefail
-  url='<archive_url>'
-  workspace='<workspace_id>'
-  snapshot='<snapshot_id>'
-  root=.delphina/knowledge
-  supported_layouts=' 1 '
-
-  # The workspace id becomes a path segment, so it must not climb out of root.
-  case "$workspace" in
-    '' | *..* | */* | *\\*) echo "refusing unsafe workspace id: $workspace" >&2; exit 1 ;;
-  esac
-  command -v unzip >/dev/null || { echo "unzip is required but not installed" >&2; exit 1; }
-
-  # The cache is rebuilt from the server and must never be committed.
-  mkdir -p "$root"
-  printf '*\n' > "$root/.gitignore"
-
-  # Stage beside the cache and swap only once everything has succeeded, so a
-  # failure leaves the previous snapshot exactly as it was.
-  staging="$(mktemp -d "$root/.staging.XXXXXX")"
-  trap 'rm -rf "$staging"' EXIT
-
-  # --fail, so an expired URL is an error rather than an XML body to unpack.
-  curl --fail --silent --show-error --location --max-time 300 \
-    --output "$staging/snapshot.zip" "$url"
-  # unzip refuses ../ and absolute paths with a non-zero exit, which set -e
-  # turns into a failed install rather than files written outside the cache.
-  unzip -q "$staging/snapshot.zip" -d "$staging/tree"
-
-  # The layout is where this skill says to grep. Refuse one it does not know.
-  layout=""
-  if [ -f "$staging/tree/sync-info.json" ]; then
-    layout="$(tr -d '[:space:]' < "$staging/tree/sync-info.json" \
-      | sed -n 's/.*"layout":\([0-9][0-9]*\).*/\1/p')"
-  fi
-  case "$supported_layouts" in
-    *" ${layout:-none} "*) ;;
-    *) echo "unsupported snapshot layout: ${layout:-none}" >&2; exit 3 ;;
-  esac
-
-  printf '%s\n' "$snapshot" > "$staging/tree/.snapshot-id"
-  if [ -d "$root/$workspace" ]; then mv "$root/$workspace" "$staging/previous"; fi
-  mv "$staging/tree" "$root/$workspace"
-
-  echo "Installed $(find "$root/$workspace" -type f -name '*.md' | wc -l | tr -d ' ') documents at $root/$workspace"
-  tr -d '[:space:]' < "$root/$workspace/sync-info.json" \
-    | sed -n 's/.*"omitted":\[\([^]][^]]*\)\].*/OMITTED: \1/p'
-)
+"${CLAUDE_PLUGIN_ROOT}/scripts/apply-snapshot.sh" \
+  --url '<archive_url>' \
+  --workspace '<workspace_id>' \
+  --snapshot '<snapshot_id>'
 ```
-<!-- install-snapshot:end -->
 
-The URL is presigned: keep it in single quotes, because it contains `&`. It
-expires about 15 minutes after it is issued. If the download fails because it
-has gone stale, call `sync_knowledge` again rather than retrying the download.
+Quote `archive_url` — presigned URLs contain `&` and will otherwise be split by
+the shell. The URL expires about 15 minutes after it is issued; if it has gone
+stale, call `sync_knowledge` again rather than retrying the download.
 
-A failed install leaves any previous snapshot untouched, so the existing cache
-is still usable while you sort it out.
-
-If the output has an `OMITTED:` line, the server could not include those
-documents. Tell the user before answering from the cache.
-
-If the install fails with `unsupported snapshot layout`, this plugin is older
-than the user's Delphina deployment. Tell them to update the Delphina plugin
-(from `/plugin` in Claude Code). Do not extract the archive another way: the
-documents would not be where this skill says to look for them.
+If the script reports that the snapshot's layout version is not supported, the
+plugin is older than the Delphina deployment. Relay the update commands it
+prints; do not try to extract the archive by hand, because the paths will not be
+where this skill says they are. A failed install leaves any previous snapshot
+untouched, so the existing cache is still usable in the meantime.
 
 ## Reading what you get
 
